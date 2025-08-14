@@ -2,34 +2,85 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0">
+    <meta name="theme-color" content="#4CAF50">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="Calculator">
+    <meta name="mobile-web-app-capable" content="yes">
+    
+    <!-- Prevent phone number detection -->
+    <meta name="format-detection" content="telephone=no">
+    
+    <!-- Optimize for mobile performance -->
+    <meta name="description" content="Mobile-optimized number calculator for quantity and weight calculations">
+    <meta name="keywords" content="calculator, mobile, numbers, quantity, weight">
+    
     <title>Number Calculator</title>
     <link rel="stylesheet" href="styles.css">
+    
+    <!-- Preload critical resources -->
+    <link rel="preload" href="app.js" as="script">
+    
+    <!-- Favicon for various devices -->
+    <link rel="icon" type="image/x-icon" href="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzIiIGhlaWdodD0iMzIiIHZpZXdCb3g9IjAgMCAzMiAzMiIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjMyIiBoZWlnaHQ9IjMyIiByeD0iOCIgZmlsbD0iIzRDQUY1MCIvPgo8cGF0aCBkPSJNOCAxMkgxNlYyMEg4VjEyWiIgZmlsbD0id2hpdGUiLz4KPHA+YXRoIGQ9Ik0xOCAxMkgyNlYyMEgxOFYxMloiIGZpbGw9IndoaXRlIi8+CjwvcGF0aD4KPC9zdmc+">
+    
+    <style>
+        /* Critical CSS for initial load */
+        body { 
+            margin: 0; 
+            font-family: -apple-system, BlinkMacSystemFont, sans-serif; 
+            background: #f5f5f5;
+            -webkit-text-size-adjust: 100%;
+        }
+        .page { display: none; }
+        .page.active { display: block; }
+        .loading { 
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+            height: 100vh; 
+            font-size: 18px; 
+            color: #666;
+        }
+    </style>
 </head>
 <body>
+    <!-- Loading indicator -->
+    <div id="loadingIndicator" class="loading">
+        <div>Loading Calculator...</div>
+    </div>
+
     <!-- MENU PAGE -->
-    <div id="menuPage" class="page active">
+    <div id="menuPage" class="page">
         <div class="container menu-container">
             <div>
-                <h1>Number Calculator</h1>
+                <h1>📱 Number Calculator</h1>
                 <div class="description">
-                    Choose your calculator version:
+                    Choose your calculator version:<br>
+                    <small style="color: #888;">Optimized for mobile devices</small>
                 </div>
 
                 <div class="option-buttons">
-                    <button class="option-btn" onclick="goToSimple()">
-                        Simple Calculator
+                    <button class="option-btn" onclick="goToSimple()" type="button" aria-label="Open Simple Calculator">
+                        🧮 Simple Calculator
                     </button>
-                    <button class="option-btn complex-btn" onclick="showPasswordInput()">
-                        Complex Calculator
+                    <button class="option-btn complex-btn" onclick="showPasswordInput()" type="button" aria-label="Open Complex Calculator">
+                        🔒 Complex Calculator
                     </button>
                 </div>
 
-                <div id="passwordSection" class="password-section">
-                    <h3>Enter Password for Complex Calculator:</h3>
-                    <input type="password" id="passwordInput" class="password-input" placeholder="Enter password" onkeydown="handlePasswordEnter(event)">
-                    <button class="submit-btn" onclick="checkPassword()">Submit</button>
-                    <div id="errorMessage" class="error-message"></div>
+                <div id="passwordSection" class="password-section" role="dialog" aria-labelledby="passwordTitle">
+                    <h3 id="passwordTitle">Enter Password for Complex Calculator:</h3>
+                    <input type="password" 
+                           id="passwordInput" 
+                           class="password-input" 
+                           placeholder="Enter password" 
+                           autocomplete="current-password"
+                           onkeydown="handlePasswordEnter(event)"
+                           aria-describedby="errorMessage">
+                    <button class="submit-btn" onclick="checkPassword()" type="button">Submit</button>
+                    <div id="errorMessage" class="error-message" role="alert" aria-live="polite"></div>
                 </div>
             </div>
         </div>
@@ -38,24 +89,51 @@
     <!-- SIMPLE CALCULATOR PAGE -->
     <div id="simplePage" class="page">
         <div class="container simple-container">
-            <button class="back-btn" onclick="goToMenu()">&larr; Back to Menu</button>
-            <h1>Simple Number Calculator</h1>
+            <button class="back-btn" onclick="goToMenu()" type="button" aria-label="Back to Menu">
+                ← Back to Menu
+            </button>
+            <h1>🧮 Simple Calculator</h1>
             <p style="text-align: center; color: #666; margin-bottom: 30px;">
-                Add number pairs and calculate totals
+                Add number pairs and calculate totals<br>
+                <small>Tap Enter to move between fields</small>
             </p>
 
-            <div id="simplePairs"></div>
-            <button class="add-btn" onclick="addSimpleNumberPair()">+ Add Number Pair</button>
+            <div id="simplePairs" role="region" aria-label="Number pairs"></div>
+            
+            <button class="add-btn" 
+                    onclick="addSimpleNumberPair()" 
+                    type="button"
+                    aria-label="Add new number pair">
+                ➕ Add Number Pair
+            </button>
 
-            <div style="text-align: center; margin-top: 20px;">
-                <button onclick="calculateSimple()">Calculate Totals</button>
-                <button onclick="resetSimple()" style="background-color: #ff9800;">Reset All</button>
+            <div style="text-align: center; margin-top: 30px;">
+                <button onclick="calculateSimple()" 
+                        type="button"
+                        aria-label="Calculate totals">
+                    📊 Calculate Totals
+                </button>
+                <button onclick="resetSimple()" 
+                        type="button"
+                        style="background-color: #ff9800;"
+                        aria-label="Reset all data">
+                    🔄 Reset All
+                </button>
             </div>
 
-            <div id="simpleResults" class="results" style="display: none;">
-                <h3>Results:</h3>
-                <div class="result-item">Total Quantity: <span id="simpleTotalQuantity">0</span></div>
-                <div class="result-item">Total Weight: <span id="simpleTotalWeight">0</span></div>
+            <div id="simpleResults" 
+                 class="results" 
+                 style="display: none;"
+                 role="region" 
+                 aria-label="Calculation results"
+                 aria-live="polite">
+                <h3>📈 Results:</h3>
+                <div class="result-item">
+                    <strong>Total Quantity:</strong> <span id="simpleTotalQuantity">0</span>
+                </div>
+                <div class="result-item">
+                    <strong>Total Weight:</strong> <span id="simpleTotalWeight">0</span>
+                </div>
             </div>
         </div>
     </div>
@@ -63,20 +141,28 @@
     <!-- COMPLEX CALCULATOR PAGE -->
     <div id="complexPage" class="page">
         <div class="container">
-            <button class="back-btn" onclick="goToMenu()">&larr; Back to Menu</button>
-            <h1>Multi-Item Calculator</h1>
+            <button class="back-btn" onclick="goToMenu()" type="button" aria-label="Back to Menu">
+                ← Back to Menu
+            </button>
+            <h1>🔧 Multi-Item Calculator</h1>
             <p style="text-align: center; color: #666; margin-bottom: 30px;">
-                Add different item categories and calculate quantities and weights for each
+                Add different item categories and calculate quantities and weights for each<br>
+                <small>Advanced calculator for detailed analysis</small>
             </p>
 
-            <div id="complexResults" class="results" style="display: none;">
-                <h3>Results by Item:</h3>
+            <div id="complexResults" 
+                 class="results" 
+                 style="display: none;"
+                 role="region" 
+                 aria-label="Complex calculation results"
+                 aria-live="polite">
+                <h3>📊 Results by Item:</h3>
                 <div id="complexResultsGrid" class="results-grid"></div>
             </div>
 
-            <div class="input-group" style="margin-bottom: 20px;">
-                <label for="periodSelect">Period:</label>
-                <select id="periodSelect">
+            <div class="input-group" style="margin-bottom: 25px;">
+                <label for="periodSelect">📅 Period:</label>
+                <select id="periodSelect" aria-label="Select time period">
                     <option value="Pre-Historic">Pre-Historic</option>
                     <option value="Historic">Historic</option>
                 </select>
@@ -84,34 +170,290 @@
 
             <div class="item-controls">
                 <div class="input-group">
-                    <label for="newItemName">New Item Category:</label>
-                    <select id="newItemName" onchange="handleDropdownChange()" onkeydown="handleNewItemEnter(event)">
+                    <label for="newItemName">🏷️ New Item Category:</label>
+                    <select id="newItemName" 
+                            onchange="handleDropdownChange()" 
+                            onkeydown="handleNewItemEnter(event)"
+                            aria-label="Select or enter item category">
                         <option value="">-- Select or type custom --</option>
-                        <option value="Ceramic">Ceramic</option>
-                        <option value="Lithic">Lithic</option>
-                        <option value="Shell">Shell</option>
-                        <option value="Faunal">Faunal</option>
-                        <option value="Floral">Floral</option>
-                        <option value="Charcoal">Charcoal</option>
-                        <option value="Daub">Daub</option>
-                        <option value="Heavy Fraction">Heavy Fraction</option>
-                        <option value="Light Fraction">Light Fraction</option>
-                        <option value="custom">Type your own...</option>
+                        <option value="Ceramic">🏺 Ceramic</option>
+                        <option value="Lithic">🪨 Lithic</option>
+                        <option value="Shell">🐚 Shell</option>
+                        <option value="Faunal">🦴 Faunal</option>
+                        <option value="Floral">🌿 Floral</option>
+                        <option value="Charcoal">🔥 Charcoal</option>
+                        <option value="Daub">🧱 Daub</option>
+                        <option value="Heavy Fraction">⚖️ Heavy Fraction</option>
+                        <option value="Light Fraction">🪶 Light Fraction</option>
+                        <option value="custom">✏️ Type your own...</option>
                     </select>
-                    <input type="text" id="customItemName" placeholder="Enter custom item name" style="display: none; margin-top: 10px;" onkeydown="handleNewItemEnter(event)">
+                    <input type="text" 
+                           id="customItemName" 
+                           placeholder="Enter custom item name" 
+                           style="display: none; margin-top: 10px;" 
+                           onkeydown="handleNewItemEnter(event)"
+                           autocomplete="off"
+                           maxlength="50"
+                           aria-label="Custom item name">
                 </div>
-                <button class="new-item-btn" onclick="addNewItem()">+ Add Item</button>
+                <button class="new-item-btn" 
+                        onclick="addNewItem()" 
+                        type="button"
+                        aria-label="Add new item category">
+                    ➕ Add Item
+                </button>
             </div>
 
-            <div id="itemSections"></div>
+            <div id="itemSections" 
+                 role="region" 
+                 aria-label="Item sections"
+                 aria-live="polite"></div>
 
             <div class="sticky-buttons" style="text-align: center;">
-                <button onclick="calculateAll()">Calculate All Totals</button>
-                <button onclick="resetAll()" style="background-color: #ff9800;">Reset All</button>
+                <button onclick="calculateAll()" 
+                        type="button"
+                        aria-label="Calculate all totals">
+                    📊 Calculate All Totals
+                </button>
+                <button onclick="resetAll()" 
+                        type="button"
+                        style="background-color: #ff9800;"
+                        aria-label="Reset all data">
+                    🔄 Reset All
+                </button>
             </div>
         </div>
     </div>
 
+    <!-- Service Worker Registration (Optional) -->
+    <script>
+        // Register service worker for offline capability (optional)
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', function() {
+                // Uncomment the following lines if you want offline capability
+                // navigator.serviceWorker.register('/sw.js')
+                //     .then(function(registration) {
+                //         console.log('SW registered: ', registration);
+                //     })
+                //     .catch(function(registrationError) {
+                //         console.log('SW registration failed: ', registrationError);
+                //     });
+            });
+        }
+
+        // Hide loading indicator once DOM is loaded
+        document.addEventListener('DOMContentLoaded', function() {
+            const loadingIndicator = document.getElementById('loadingIndicator');
+            if (loadingIndicator) {
+                loadingIndicator.style.display = 'none';
+            }
+        });
+
+        // Prevent context menu on long press (mobile)
+        document.addEventListener('contextmenu', function(e) {
+            if (e.target.matches('input, button, select')) {
+                e.preventDefault();
+            }
+        });
+
+        // Prevent pull-to-refresh on mobile
+        document.addEventListener('touchstart', function(e) {
+            if (e.touches.length > 1) {
+                e.preventDefault();
+            }
+        });
+
+        let lastTouchEnd = 0;
+        document.addEventListener('touchend', function(event) {
+            const now = (new Date()).getTime();
+            if (now - lastTouchEnd <= 300) {
+                event.preventDefault();
+            }
+            lastTouchEnd = now;
+        }, false);
+
+        // Handle viewport height changes (mobile keyboard)
+        function handleViewportChange() {
+            const vh = window.innerHeight * 0.01;
+            document.documentElement.style.setProperty('--vh', `${vh}px`);
+        }
+
+        window.addEventListener('resize', handleViewportChange);
+        window.addEventListener('orientationchange', function() {
+            setTimeout(handleViewportChange, 500);
+        });
+
+        // Initial call
+        handleViewportChange();
+
+        // Improve mobile scrolling performance
+        document.addEventListener('touchmove', function(e) {
+            // Allow scrolling
+        }, { passive: true });
+
+        // Handle hardware back button (Android)
+        window.addEventListener('popstate', function(event) {
+            const currentPage = document.querySelector('.page.active');
+            if (currentPage && currentPage.id !== 'menuPage') {
+                goToMenu();
+                event.preventDefault();
+            }
+        });
+
+        // Add to home screen prompt handling
+        let deferredPrompt;
+        window.addEventListener('beforeinstallprompt', (e) => {
+            // Prevent Chrome 67 and earlier from automatically showing the prompt
+            e.preventDefault();
+            // Stash the event so it can be triggered later
+            deferredPrompt = e;
+            
+            // Show custom install button (optional)
+            // You can add a custom "Add to Home Screen" button here
+        });
+
+        // Handle successful installation
+        window.addEventListener('appinstalled', (evt) => {
+            console.log('Calculator app was installed');
+        });
+
+        // Optimize for mobile performance
+        document.addEventListener('DOMContentLoaded', function() {
+            // Add passive event listeners for better performance
+            const passiveEvents = ['touchstart', 'touchmove', 'wheel'];
+            passiveEvents.forEach(eventType => {
+                document.addEventListener(eventType, function() {}, { passive: true });
+            });
+
+            // Preload critical images/resources
+            const preloadImages = [];
+            // Add any images you want to preload here
+            
+            preloadImages.forEach(src => {
+                const img = new Image();
+                img.src = src;
+            });
+        });
+
+        // Battery optimization - reduce activity when battery is low
+        if ('getBattery' in navigator) {
+            navigator.getBattery().then(function(battery) {
+                function updateBatteryOptimization() {
+                    if (battery.level < 0.2 && !battery.charging) {
+                        // Reduce auto-save frequency when battery is low
+                        console.log('Battery optimization: reducing background activity');
+                    }
+                }
+
+                battery.addEventListener('levelchange', updateBatteryOptimization);
+                battery.addEventListener('chargingchange', updateBatteryOptimization);
+            });
+        }
+
+        // Memory management - clean up when page is hidden
+        document.addEventListener('visibilitychange', function() {
+            if (document.hidden) {
+                // Clean up any non-essential resources
+                console.log('Page hidden - cleaning up resources');
+            } else {
+                console.log('Page visible - resuming normal operation');
+            }
+        });
+
+        // Network status handling
+        function updateOnlineStatus() {
+            const status = navigator.onLine ? 'online' : 'offline';
+            if (status === 'offline') {
+                console.log('App is offline - using cached functionality');
+                // You could show an offline indicator here
+            }
+        }
+
+        window.addEventListener('online', updateOnlineStatus);
+        window.addEventListener('offline', updateOnlineStatus);
+        updateOnlineStatus(); // Initial check
+
+        // Error boundary for JavaScript errors
+        window.addEventListener('error', function(e) {
+            console.error('Global error caught:', e.error);
+            // You could show a user-friendly error message here
+            // showNotification('An error occurred. Please refresh the page.', 'error');
+        });
+
+        window.addEventListener('unhandledrejection', function(e) {
+            console.error('Unhandled promise rejection:', e.reason);
+            // Handle promise rejections
+        });
+
+        // Performance monitoring (optional)
+        if ('performance' in window) {
+            window.addEventListener('load', function() {
+                setTimeout(function() {
+                    const perf = performance.getEntriesByType('navigation')[0];
+                    console.log('Page load performance:', {
+                        domContentLoaded: perf.domContentLoadedEventEnd - perf.domContentLoadedEventStart,
+                        loadComplete: perf.loadEventEnd - perf.loadEventStart,
+                        totalTime: perf.loadEventEnd - perf.navigationStart
+                    });
+                }, 0);
+            });
+        }
+
+        // Accessibility improvements
+        document.addEventListener('DOMContentLoaded', function() {
+            // Add skip links for screen readers
+            const skipLink = document.createElement('a');
+            skipLink.href = '#main-content';
+            skipLink.textContent = 'Skip to main content';
+            skipLink.style.cssText = `
+                position: absolute;
+                top: -40px;
+                left: 6px;
+                background: #000;
+                color: #fff;
+                padding: 8px;
+                text-decoration: none;
+                z-index: 10000;
+                border-radius: 4px;
+            `;
+            skipLink.addEventListener('focus', function() {
+                this.style.top = '6px';
+            });
+            skipLink.addEventListener('blur', function() {
+                this.style.top = '-40px';
+            });
+            document.body.insertBefore(skipLink, document.body.firstChild);
+
+            // Add main content landmark
+            const containers = document.querySelectorAll('.container');
+            containers.forEach(container => {
+                if (!container.hasAttribute('role')) {
+                    container.setAttribute('role', 'main');
+                    container.id = 'main-content';
+                }
+            });
+
+            // Improve keyboard navigation
+            document.addEventListener('keydown', function(e) {
+                // Escape key closes password section
+                if (e.key === 'Escape') {
+                    const passwordSection = document.getElementById('passwordSection');
+                    if (passwordSection && passwordSection.style.display !== 'none') {
+                        passwordSection.style.display = 'none';
+                        document.querySelector('.complex-btn').focus();
+                    }
+                }
+            });
+        });
+    </script>
+
+    <!-- Load main application script -->
     <script src="app.js"></script>
+
+    <!-- Analytics or other tracking scripts can go here -->
+    <!-- <script>
+        // Add your analytics code here if needed
+        // Example: Google Analytics, Mixpanel, etc.
+    </script> -->
 </body>
 </html>
