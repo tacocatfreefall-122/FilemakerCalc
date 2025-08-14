@@ -32,7 +32,7 @@ function validateQuantityInput(input) {
         // Remove the decimal and any digits after it
         value = originalValue.replace(/[.,].*/, '');
         input.value = value;
-        
+
         // Set cursor to end of the cleaned value
         const newPosition = value.length;
         input.setSelectionRange(newPosition, newPosition);
@@ -45,7 +45,7 @@ function validateQuantityInput(input) {
     // Only update if the value actually changed
     if (value !== originalValue) {
         input.value = value;
-        
+
         // Calculate how many characters were removed before the cursor
         let removedBeforeCursor = 0;
         for (let i = 0; i < cursorPosition && i < originalValue.length; i++) {
@@ -53,7 +53,7 @@ function validateQuantityInput(input) {
                 removedBeforeCursor++;
             }
         }
-        
+
         // Set new cursor position
         const newPosition = Math.max(0, cursorPosition - removedBeforeCursor);
         input.setSelectionRange(newPosition, newPosition);
@@ -83,13 +83,13 @@ function validateWeightInput(input) {
     // Only update if the value actually changed
     if (value !== originalValue) {
         input.value = value;
-        
+
         // Calculate how many characters were removed before the cursor
         let removedBeforeCursor = 0;
         const originalChars = originalValue.split('');
         const newChars = value.split('');
         let newIndex = 0;
-        
+
         for (let i = 0; i < cursorPosition && i < originalChars.length; i++) {
             if (newIndex < newChars.length && originalChars[i] === newChars[newIndex]) {
                 newIndex++;
@@ -97,7 +97,7 @@ function validateWeightInput(input) {
                 removedBeforeCursor++;
             }
         }
-        
+
         // Set new cursor position
         const newPosition = Math.max(0, cursorPosition - removedBeforeCursor);
         input.setSelectionRange(newPosition, newPosition);
@@ -106,19 +106,19 @@ function validateWeightInput(input) {
 
 function handleQuantityKeydown(event) {
     const input = event.target;
-    
+
     // Allow: backspace, delete, tab, escape, enter
     if ([8, 9, 27, 13, 46].indexOf(event.keyCode) !== -1 ||
         // Allow: Ctrl+A, Ctrl+C, Ctrl+V, Ctrl+X
         (event.ctrlKey === true && [65, 67, 86, 88].indexOf(event.keyCode) !== -1)) {
         return;
     }
-    
+
     // Allow decimal point so it can be caught by validation and trigger prompt
     if (event.keyCode === 190 || event.keyCode === 110) {
         return;
     }
-    
+
     // Ensure that it is a number only (allow decimal point to pass through)
     if ((event.shiftKey || (event.keyCode < 48 || event.keyCode > 57)) && 
         (event.keyCode < 96 || event.keyCode > 105)) {
@@ -130,14 +130,14 @@ function handleQuantityKeydown(event) {
 function handleWeightKeydown(event) {
     const input = event.target;
     const key = event.key;
-    
+
     // Allow: backspace, delete, tab, escape, enter
     if ([8, 9, 27, 13, 46].indexOf(event.keyCode) !== -1 ||
         // Allow: Ctrl+A, Ctrl+C, Ctrl+V, Ctrl+X
         (event.ctrlKey === true && [65, 67, 86, 88].indexOf(event.keyCode) !== -1)) {
         return;
     }
-    
+
     // Ensure that it is a number or decimal point and stop the keypress
     if ((event.shiftKey || (event.keyCode < 48 || event.keyCode > 57)) && 
         (event.keyCode < 96 || event.keyCode > 105) && 
@@ -145,13 +145,13 @@ function handleWeightKeydown(event) {
         event.preventDefault();
         return;
     }
-    
+
     // Only allow one decimal point
     if ((key === '.' || event.keyCode === 190 || event.keyCode === 110) && input.value.indexOf('.') !== -1) {
         event.preventDefault();
         return;
     }
-    
+
     // Limit decimal places to 1
     const currentValue = input.value;
     const decimalIndex = currentValue.indexOf('.');
@@ -165,17 +165,17 @@ function handleWeightKeydown(event) {
 // Better mobile focus handling
 function focusInputSafely(input, delay = 100) {
     if (!input) return;
-    
+
     setTimeout(() => {
         input.focus();
-        
+
         // For iOS, we need to trigger the keyboard differently
         if (isIOS()) {
             input.click();
             // Scroll the input into view
             input.scrollIntoView({ behavior: 'smooth', block: 'center' });
         }
-        
+
         // Set cursor to end of input
         const length = input.value.length;
         input.setSelectionRange(length, length);
@@ -209,7 +209,7 @@ function loadFromLocalStorage() {
         const saved = localStorage.getItem(AUTOSAVE_KEY);
         if (saved) {
             const appState = JSON.parse(saved);
-            
+
             // Show recovery notification
             const lastSave = new Date(appState.timestamp);
             if (confirm(`Found saved data from ${lastSave.toLocaleString()}. Would you like to restore it?`)) {
@@ -242,7 +242,7 @@ function getComplexItemsData() {
         const itemId = itemSection.id;
         const itemName = itemSection.querySelector('.item-title')?.textContent || '';
         const pairs = [];
-        
+
         for (let i = 1; i <= (pairCounts[itemId] || 0); i++) {
             const quantity = document.getElementById(`num1-${itemId}-${i}`)?.value || '';
             const weight = document.getElementById(`num2-${itemId}-${i}`)?.value || '';
@@ -250,7 +250,7 @@ function getComplexItemsData() {
                 pairs.push({ id: i, quantity, weight });
             }
         }
-        
+
         if (pairs.length > 0 || itemName) {
             items.push({ id: itemId, name: itemName, pairs });
         }
@@ -264,36 +264,36 @@ function restoreAppState(appState) {
     simplePairCount = appState.simplePairCount || 0;
     itemCount = appState.itemCount || 0;
     pairCounts = appState.pairCounts || {};
-    
+
     // Restore period select
     if (document.getElementById('periodSelect')) {
         document.getElementById('periodSelect').value = appState.periodSelect || 'Pre-Historic';
     }
-    
+
     // Restore simple calculator
     if (appState.simplePairs && appState.simplePairs.length > 0) {
         document.getElementById('simplePairs').innerHTML = '';
         simplePairCount = 0;
-        
+
         appState.simplePairs.forEach(pairData => {
             addSimpleNumberPair();
             document.getElementById(`simpleNum1-${simplePairCount}`).value = pairData.quantity;
             document.getElementById(`simpleNum2-${simplePairCount}`).value = pairData.weight;
         });
     }
-    
+
     // Restore complex calculator
     if (appState.complexItems && appState.complexItems.length > 0) {
         document.getElementById('itemSections').innerHTML = '';
         itemCount = 0;
         pairCounts = {};
-        
+
         appState.complexItems.forEach(itemData => {
             // Restore item
             itemCount++;
             const itemId = itemData.id || `item-${itemCount}`;
             pairCounts[itemId] = 0;
-            
+
             const container = document.getElementById('itemSections');
             const itemDiv = document.createElement('div');
             itemDiv.className = 'item-section';
@@ -307,7 +307,7 @@ function restoreAppState(appState) {
                 <button class="add-btn" onclick="addNumberPair('${itemId}')">+ Add Number Pair</button>
             `;
             container.appendChild(itemDiv);
-            
+
             // Restore pairs for this item
             itemData.pairs.forEach(pairData => {
                 addNumberPair(itemId);
@@ -316,10 +316,10 @@ function restoreAppState(appState) {
             });
         });
     }
-    
+
     // Show the correct page
     showPage(currentPage);
-    
+
     // Show success message
     showNotification('Data restored successfully!', 'success');
 }
@@ -334,20 +334,20 @@ function saveCalculationToHistory(type, results) {
             results: results,
             data: type === 'simple' ? getSimplePairsData() : getComplexItemsData()
         };
-        
+
         // Load existing history
         const existingHistory = JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]');
-        
+
         // Add new calculation to beginning of array
         existingHistory.unshift(calculation);
-        
+
         // Keep only the last MAX_HISTORY calculations
         const trimmedHistory = existingHistory.slice(0, MAX_HISTORY);
-        
+
         // Save back to localStorage
         localStorage.setItem(HISTORY_KEY, JSON.stringify(trimmedHistory));
         calculationHistory = trimmedHistory;
-        
+
         updateHistoryUI();
         console.log('Calculation saved to history');
     } catch (error) {
@@ -379,7 +379,7 @@ function addHistoryButtonsToPages() {
         const calculateSection = simpleContainer.querySelector('div[style*="text-align: center"]');
         simpleContainer.insertBefore(historySection, calculateSection);
     }
-    
+
     // Add to complex page
     const complexContainer = document.querySelector('#complexPage .container');
     if (complexContainer && !document.getElementById('complexHistorySection')) {
@@ -394,9 +394,9 @@ function createHistorySection(type) {
     section.id = `${type}HistorySection`;
     section.className = 'history-section';
     section.style.cssText = 'margin: 20px 0; padding: 15px; background-color: #f0f0f0; border-radius: 5px; border-left: 4px solid #2196F3;';
-    
+
     const relevantHistory = calculationHistory.filter(calc => calc.type === type);
-    
+
     if (relevantHistory.length === 0) {
         section.innerHTML = `
             <h4 style="margin: 0 0 10px 0; color: #666;">Recent Calculations</h4>
@@ -408,7 +408,7 @@ function createHistorySection(type) {
             const resultSummary = type === 'simple' 
                 ? `Qty: ${calc.results.totalQuantity}, Weight: ${calc.results.totalWeight}`
                 : `${calc.results.length} items calculated`;
-            
+
             return `
                 <div style="margin: 10px 0; display: flex; justify-content: space-between; align-items: center;">
                     <div>
@@ -421,13 +421,13 @@ function createHistorySection(type) {
                 </div>
             `;
         }).join('');
-        
+
         section.innerHTML = `
             <h4 style="margin: 0 0 15px 0; color: #333;">Recent Calculations</h4>
             ${historyItems}
         `;
     }
-    
+
     return section;
 }
 
@@ -437,17 +437,17 @@ function restoreCalculation(calculationId) {
         showNotification('Calculation not found!', 'error');
         return;
     }
-    
+
     if (!confirm(`This will replace your current data with the calculation from ${new Date(calculation.timestamp).toLocaleString()}. Continue?`)) {
         return;
     }
-    
+
     if (calculation.type === 'simple') {
         restoreSimpleCalculation(calculation);
     } else {
         restoreComplexCalculation(calculation);
     }
-    
+
     showNotification('Calculation restored successfully!', 'success');
 }
 
@@ -456,14 +456,14 @@ function restoreSimpleCalculation(calculation) {
     document.getElementById('simplePairs').innerHTML = '';
     document.getElementById('simpleResults').style.display = 'none';
     simplePairCount = 0;
-    
+
     // Restore data
     calculation.data.forEach(pairData => {
         addSimpleNumberPair();
         document.getElementById(`simpleNum1-${simplePairCount}`).value = pairData.quantity;
         document.getElementById(`simpleNum2-${simplePairCount}`).value = pairData.weight;
     });
-    
+
     // Show results
     document.getElementById('simpleTotalQuantity').textContent = calculation.results.totalQuantity;
     document.getElementById('simpleTotalWeight').textContent = calculation.results.totalWeight;
@@ -473,13 +473,13 @@ function restoreSimpleCalculation(calculation) {
 function restoreComplexCalculation(calculation) {
     // Clear current data
     resetAll();
-    
+
     // Restore items
     calculation.data.forEach(itemData => {
         itemCount++;
         const itemId = `item-${itemCount}`;
         pairCounts[itemId] = 0;
-        
+
         const container = document.getElementById('itemSections');
         const itemDiv = document.createElement('div');
         itemDiv.className = 'item-section';
@@ -493,7 +493,7 @@ function restoreComplexCalculation(calculation) {
             <button class="add-btn" onclick="addNumberPair('${itemId}')">+ Add Number Pair</button>
         `;
         container.appendChild(itemDiv);
-        
+
         // Restore pairs
         itemData.pairs.forEach(pairData => {
             addNumberPair(itemId);
@@ -501,7 +501,7 @@ function restoreComplexCalculation(calculation) {
             document.getElementById(`num2-${itemId}-${pairCounts[itemId]}`).value = pairData.weight;
         });
     });
-    
+
     // Show results
     const resultsGrid = document.getElementById('complexResultsGrid');
     resultsGrid.innerHTML = calculation.results.map(result => `
@@ -530,7 +530,7 @@ function showNotification(message, type = 'info') {
         opacity: 0;
         transition: opacity 0.3s ease;
     `;
-    
+
     switch (type) {
         case 'success':
             notification.style.backgroundColor = '#4CAF50';
@@ -541,13 +541,13 @@ function showNotification(message, type = 'info') {
         default:
             notification.style.backgroundColor = '#2196F3';
     }
-    
+
     notification.textContent = message;
     document.body.appendChild(notification);
-    
+
     // Fade in
     setTimeout(() => notification.style.opacity = '1', 10);
-    
+
     // Remove after 3 seconds
     setTimeout(() => {
         notification.style.opacity = '0';
@@ -558,19 +558,19 @@ function showNotification(message, type = 'info') {
 // Auto-save on input changes
 function setupAutoSave() {
     let saveTimeout;
-    
+
     function triggerAutoSave() {
         clearTimeout(saveTimeout);
         saveTimeout = setTimeout(saveToLocalStorage, 1000); // Save after 1 second of inactivity
     }
-    
+
     // Save on input changes
     document.addEventListener('input', triggerAutoSave);
     document.addEventListener('change', triggerAutoSave);
-    
+
     // Save periodically (every 30 seconds)
     setInterval(saveToLocalStorage, 30000);
-    
+
     // Save before page unload
     window.addEventListener('beforeunload', saveToLocalStorage);
 }
@@ -589,10 +589,10 @@ function showPage(pageId) {
     } else {
         document.body.style.paddingBottom = '20px';
     }
-    
+
     // Update history UI when switching pages
     updateHistoryUI();
-    
+
     // Auto-save page change
     setTimeout(saveToLocalStorage, 100);
 }
@@ -706,7 +706,7 @@ function handleSimpleEnterKey(event, currentPair, currentField) {
         }
 
         if (nextInput) {
-            focusInputSafely(nextInput, isIOS() ? 300 : 100);
+            focusInputSafely(nextInput, isIOS() ? 500 : 100);
         }
     }
 }
@@ -737,12 +737,12 @@ function calculateSimple() {
     if (hasData) {
         // Format quantity as integer
         const formattedQuantity = totalQuantity.toString();
-        
+
         // Format weight to 1 decimal place (no trailing zeros)
         const formattedWeight = totalWeight % 1 === 0 ? 
             totalWeight.toString() : 
             totalWeight.toFixed(1);
-        
+
         document.getElementById('simpleTotalQuantity').textContent = formattedQuantity;
         document.getElementById('simpleTotalWeight').textContent = formattedWeight;
         document.getElementById('simpleResults').style.display = 'block';
@@ -753,13 +753,13 @@ function calculateSimple() {
             totalWeight: formattedWeight 
         };
         saveCalculationToHistory('simple', results);
-        
+
         // Update history UI
         updateHistoryUI();
 
         // Scroll to results
         document.getElementById('simpleResults').scrollIntoView({ behavior: 'smooth' });
-        
+
         showNotification('Calculation completed and saved!', 'success');
     } else {
         showNotification('Please add some data before calculating', 'error');
@@ -772,13 +772,13 @@ function resetSimple() {
             return;
         }
     }
-    
+
     document.getElementById('simplePairs').innerHTML = '';
     document.getElementById('simpleResults').style.display = 'none';
     simplePairCount = 0;
     // Add first pair automatically after reset
     addSimpleNumberPair();
-    
+
     // Clear autosave
     saveToLocalStorage();
     showNotification('Simple calculator reset', 'info');
@@ -935,7 +935,7 @@ function handleEnterKey(event, itemId, currentPair, currentField) {
         }
 
         if (nextInput) {
-            focusInputSafely(nextInput, isIOS() ? 300 : 100);
+            focusInputSafely(nextInput, isIOS() ? 500 : 100);
         }
     }
 }
@@ -971,12 +971,12 @@ function calculateAll() {
         if (hasData) {
             // Format quantity as integer
             const formattedQuantity = totalQuantity;
-            
+
             // Format weight to 1 decimal place (no trailing zeros)
             const formattedWeight = totalWeight % 1 === 0 ? 
                 totalWeight : 
                 Math.round(totalWeight * 10) / 10; // Round to 1 decimal place
-            
+
             results.push({
                 name: itemName,
                 quantity: formattedQuantity,
@@ -1000,13 +1000,13 @@ function calculateAll() {
 
         // Save to history
         saveCalculationToHistory('complex', results);
-        
+
         // Update history UI
         updateHistoryUI();
 
         // Scroll to top to show results
         window.scrollTo({ top: 0, behavior: 'smooth' });
-        
+
         showNotification('Calculation completed and saved!', 'success');
     } else {
         showNotification('Please add some data before calculating', 'error');
@@ -1019,7 +1019,7 @@ function resetAll() {
             return;
         }
     }
-    
+
     document.getElementById('itemSections').innerHTML = '';
     document.getElementById('complexResults').style.display = 'none';
     itemCount = 0;
@@ -1027,7 +1027,7 @@ function resetAll() {
     document.getElementById('newItemName').value = '';
     document.getElementById('customItemName').value = '';
     document.getElementById('customItemName').style.display = 'none';
-    
+
     // Clear autosave
     saveToLocalStorage();
     showNotification('Complex calculator reset', 'info');
@@ -1037,18 +1037,18 @@ function resetAll() {
 document.addEventListener('DOMContentLoaded', function() {
     // Load calculation history
     loadCalculationHistory();
-    
+
     // Try to restore saved data
     const restored = loadFromLocalStorage();
-    
+
     if (!restored) {
         // No saved data, start fresh
         showPage('menu');
     }
-    
+
     // Setup auto-save
     setupAutoSave();
-    
+
     console.log('Calculator app initialized successfully');
 });
 
