@@ -923,15 +923,9 @@ function handleEnterKey(event, itemId, currentPair, currentField) {
             // Move from quantity to weight in same pair
             nextInput = document.getElementById(`num2-${itemId}-${currentPair}`);
         } else if (currentField === 2) {
-            // Move from weight to quantity in next pair, or create new pair
-            let nextPair = currentPair + 1;
-            nextInput = document.getElementById(`num1-${itemId}-${nextPair}`);
-
-            if (!nextInput) {
-                // Create new pair if it doesn't exist
-                addNumberPair(itemId);
-                nextInput = document.getElementById(`num1-${itemId}-${pairCounts[itemId]}`);
-            }
+            // Always create a new pair when pressing enter from weight field
+            addNumberPair(itemId);
+            nextInput = document.getElementById(`num1-${itemId}-${pairCounts[itemId]}`);
         }
 
         if (nextInput) {
