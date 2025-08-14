@@ -22,35 +22,49 @@ function isIOS() {
 
 // Input validation functions for quantities (integers only)
 function validateQuantityInput(input) {
+    const cursorPosition = input.selectionStart;
     let value = input.value;
-    
+    const originalLength = value.length;
+
     // Remove any non-digit characters (no decimal points allowed for quantities)
     value = value.replace(/[^\d]/g, '');
-    
+
     // Update the input value
     input.value = value;
+
+    // Restore cursor position, accounting for removed characters
+    const lengthDiff = originalLength - value.length;
+    const newPosition = Math.max(0, cursorPosition - lengthDiff);
+    input.setSelectionRange(newPosition, newPosition);
 }
 
 // Input validation functions for weights (allow 1 decimal place)
 function validateWeightInput(input) {
+    const cursorPosition = input.selectionStart;
     let value = input.value;
-    
+    const originalLength = value.length;
+
     // Remove any non-digit characters except decimal point
     value = value.replace(/[^\d.]/g, '');
-    
+
     // Remove extra decimal points (keep only the first one)
     const parts = value.split('.');
     if (parts.length > 2) {
         value = parts[0] + '.' + parts.slice(1).join('');
     }
-    
+
     // Limit to 1 decimal place
     if (parts.length === 2 && parts[1].length > 1) {
         value = parts[0] + '.' + parts[1].substring(0, 1);
     }
-    
+
     // Update the input value
     input.value = value;
+
+    // Restore cursor position, accounting for removed characters
+    const lengthDiff = originalLength - value.length;
+    const newPosition = Math.max(0, cursorPosition - lengthDiff);
+    input.setSelectionRange(newPosition, newPosition);
 }
 
 function handleQuantityKeydown(event) {
