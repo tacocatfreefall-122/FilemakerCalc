@@ -26,6 +26,19 @@ function validateQuantityInput(input) {
     const originalValue = input.value;
     let value = originalValue;
 
+    // Check if user is trying to enter a decimal point
+    if (originalValue.includes('.') || originalValue.includes(',')) {
+        showNotification('Quantities must be whole numbers only. Decimals are not allowed.', 'error');
+        // Remove the decimal and any digits after it
+        value = originalValue.replace(/[.,].*/, '');
+        input.value = value;
+        
+        // Set cursor to end of the cleaned value
+        const newPosition = value.length;
+        input.setSelectionRange(newPosition, newPosition);
+        return;
+    }
+
     // Remove any non-digit characters (no decimal points allowed for quantities)
     value = value.replace(/[^\d]/g, '');
 
