@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Number Calculator</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <!-- MENU PAGE -->
+    <div id="menuPage" class="page active">
+        <div class="container menu-container">
+            <div>
+                <h1>Number Calculator</h1>
+                <div class="description">
+                    Choose your calculator version:
+                </div>
+
+                <div class="option-buttons">
+                    <button class="option-btn" onclick="goToSimple()">
+                        Simple Calculator
+                    </button>
+                    <button class="option-btn complex-btn" onclick="showPasswordInput()">
+                        Complex Calculator
+                    </button>
+                </div>
+
+                <div id="passwordSection" class="password-section">
+                    <h3>Enter Password for Complex Calculator:</h3>
+                    <input type="password" id="passwordInput" class="password-input" placeholder="Enter password" onkeydown="handlePasswordEnter(event)">
+                    <button class="submit-btn" onclick="checkPassword()">Submit</button>
+                    <div id="errorMessage" class="error-message"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- SIMPLE CALCULATOR PAGE -->
+    <div id="simplePage" class="page">
+        <div class="container simple-container">
+            <button class="back-btn" onclick="goToMenu()">&larr; Back to Menu</button>
+            <h1>Simple Number Calculator</h1>
+            <p style="text-align: center; color: #666; margin-bottom: 30px;">
+                Add number pairs and calculate totals
+            </p>
+
+            <div id="simplePairs"></div>
+            <button class="add-btn" onclick="addSimpleNumberPair()">+ Add Number Pair</button>
+
+            <div style="text-align: center; margin-top: 20px;">
+                <button onclick="calculateSimple()">Calculate Totals</button>
+                <button onclick="resetSimple()" style="background-color: #ff9800;">Reset All</button>
+            </div>
+
+            <div id="simpleResults" class="results" style="display: none;">
+                <h3>Results:</h3>
+                <div class="result-item">Total Quantity: <span id="simpleTotalQuantity">0</span></div>
+                <div class="result-item">Total Weight: <span id="simpleTotalWeight">0</span></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- COMPLEX CALCULATOR PAGE -->
+    <div id="complexPage" class="page">
+        <div class="container">
+            <button class="back-btn" onclick="goToMenu()">&larr; Back to Menu</button>
+            <h1>Multi-Item Calculator</h1>
+            <p style="text-align: center; color: #666; margin-bottom: 30px;">
+                Add different item categories and calculate quantities and weights for each
+            </p>
+
+            <div id="complexResults" class="results" style="display: none;">
+                <h3>Results by Item:</h3>
+                <div id="complexResultsGrid" class="results-grid"></div>
+            </div>
+
+            <div class="input-group" style="margin-bottom: 20px;">
+                <label for="periodSelect">Period:</label>
+                <select id="periodSelect">
+                    <option value="Pre-Historic">Pre-Historic</option>
+                    <option value="Historic">Historic</option>
+                </select>
+            </div>
+
+            <div class="item-controls">
+                <div class="input-group">
+                    <label for="newItemName">New Item Category:</label>
+                    <select id="newItemName" onchange="handleDropdownChange()" onkeydown="handleNewItemEnter(event)">
+                        <option value="">-- Select or type custom --</option>
+                        <option value="Ceramic">Ceramic</option>
+                        <option value="Lithic">Lithic</option>
+                        <option value="Shell">Shell</option>
+                        <option value="Faunal">Faunal</option>
+                        <option value="Floral">Floral</option>
+                        <option value="Charcoal">Charcoal</option>
+                        <option value="Daub">Daub</option>
+                        <option value="Heavy Fraction">Heavy Fraction</option>
+                        <option value="Light Fraction">Light Fraction</option>
+                        <option value="custom">Type your own...</option>
+                    </select>
+                    <input type="text" id="customItemName" placeholder="Enter custom item name" style="display: none; margin-top: 10px;" onkeydown="handleNewItemEnter(event)">
+                </div>
+                <button class="new-item-btn" onclick="addNewItem()">+ Add Item</button>
+            </div>
+
+            <div id="itemSections"></div>
+
+            <div class="sticky-buttons" style="text-align: center;">
+                <button onclick="calculateAll()">Calculate All Totals</button>
+                <button onclick="resetAll()" style="background-color: #ff9800;">Reset All</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
