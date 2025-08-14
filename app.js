@@ -23,26 +23,35 @@ function isIOS() {
 // Input validation functions for quantities (integers only)
 function validateQuantityInput(input) {
     const cursorPosition = input.selectionStart;
-    let value = input.value;
-    const originalLength = value.length;
+    const originalValue = input.value;
+    let value = originalValue;
 
     // Remove any non-digit characters (no decimal points allowed for quantities)
     value = value.replace(/[^\d]/g, '');
 
-    // Update the input value
-    input.value = value;
-
-    // Restore cursor position, accounting for removed characters
-    const lengthDiff = originalLength - value.length;
-    const newPosition = Math.max(0, cursorPosition - lengthDiff);
-    input.setSelectionRange(newPosition, newPosition);
+    // Only update if the value actually changed
+    if (value !== originalValue) {
+        input.value = value;
+        
+        // Calculate how many characters were removed before the cursor
+        let removedBeforeCursor = 0;
+        for (let i = 0; i < cursorPosition && i < originalValue.length; i++) {
+            if (!/\d/.test(originalValue[i])) {
+                removedBeforeCursor++;
+            }
+        }
+        
+        // Set new cursor position
+        const newPosition = Math.max(0, cursorPosition - removedBeforeCursor);
+        input.setSelectionRange(newPosition, newPosition);
+    }
 }
 
 // Input validation functions for weights (allow 1 decimal place)
 function validateWeightInput(input) {
     const cursorPosition = input.selectionStart;
-    let value = input.value;
-    const originalLength = value.length;
+    const originalValue = input.value;
+    let value = originalValue;
 
     // Remove any non-digit characters except decimal point
     value = value.replace(/[^\d.]/g, '');
@@ -58,13 +67,28 @@ function validateWeightInput(input) {
         value = parts[0] + '.' + parts[1].substring(0, 1);
     }
 
-    // Update the input value
-    input.value = value;
-
-    // Restore cursor position, accounting for removed characters
-    const lengthDiff = originalLength - value.length;
-    const newPosition = Math.max(0, cursorPosition - lengthDiff);
-    input.setSelectionRange(newPosition, newPosition);
+    // Only update if the value actually changed
+    if (value !== originalValue) {
+        input.value = value;
+        
+        // Calculate how many characters were removed before the cursor
+        let removedBeforeCursor = 0;
+        const originalChars = originalValue.split('');
+        const newChars = value.split('');
+        let newIndex = 0;
+        
+        for (let i = 0; i < cursorPosition && i < originalChars.length; i++) {
+            if (newIndex < newChars.length && originalChars[i] === newChars[newIndex]) {
+                newIndex++;
+            } else {
+                removedBeforeCursor++;
+            }
+        }
+        
+        // Set new cursor position
+        const newPosition = Math.max(0, cursorPosition - removedBeforeCursor);
+        input.setSelectionRange(newPosition, newPosition);
+    }
 }
 
 function handleQuantityKeydown(event) {
