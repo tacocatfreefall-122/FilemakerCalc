@@ -8,71 +8,118 @@ let calculationHistory = [];
 // Auto-save configuration
 const AUTOSAVE_KEY = 'calculator_autosave';
 const HISTORY_KEY = 'calculator_history';
-const MAX_HISTORY = 2;
+const MAX_HISTORY = 5;
 
-// Helper function to detect mobile devices
+// DOM cache for better performance
+const domCache = {
+    simplePairs: null,
+    itemSections: null,
+    simpleResults: null,
+    complexResults: null,
+    init() {
+        this.simplePairs = document.getElementById('simplePairs');
+        this.itemSections = document.getElementById('itemSections');
+        this.simpleResults = document.getElementById('simpleResults');
+        this.complexResults = document.getElementById('complexResults');
+    }
+};
+
+// Auto-save state management
+let autoSaveState = {
+    timeout: null,
+    isScheduled: false,
+    lastSave: 0,
+    isSaving: false
+};
+
+// Enhanced mobile detection
 function isMobile() {
-    return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || 
+           window.innerWidth <= 768;
 }
 
-// Helper function to detect iOS specifically
 function isIOS() {
     return /iPad|iPhone|iPod/.test(navigator.userAgent);
 }
 
-// Input validation functions for quantities (integers only)
+function isAndroid() {
+    return /Android/i.test(navigator.userAgent);
+}
+
+// Enhanced input validation for quantities (integers only)
 function validateQuantityInput(input) {
+    if (!input) return;
+    
     const cursorPosition = input.selectionStart;
     const originalValue = input.value;
     let value = originalValue;
 
-    // Check if user is trying to enter a decimal point
+    // Remove negative signs
+    value = value.replace(/-/g, '');
+
+    // Check for decimal attempts and show mobile-friendly warning
     if (originalValue.includes('.') || originalValue.includes(',')) {
-        showNotification('Quantities must be whole numbers only. Decimals are not allowed.', 'error');
-        // Remove the decimal and any digits after it
+        showNotification('Quantities must be whole numbers only', 'error');
         value = originalValue.replace(/[.,].*/, '');
         input.value = value;
-
-        // Set cursor to end of the cleaned value
-        const newPosition = value.length;
-        input.setSelectionRange(newPosition, newPosition);
+        
+        // Mobile-friendly cursor positioning
+        setTimeout(() => {
+            const newPosition = value.length;
+            input.setSelectionRange(newPosition, newPosition);
+        }, 10);
         return;
     }
 
-    // Remove any non-digit characters (no decimal points allowed for quantities)
+    // Remove any non-digit characters
     value = value.replace(/[^\d]/g, '');
 
-    // Only update if the value actually changed
+    // Limit to reasonable length for mobile display
+    if (value.length > 8) {
+        value = value.substring(0, 8);
+        showNotification('Maximum 8 digits allowed', 'error');
+    }
+
     if (value !== originalValue) {
         input.value = value;
-
-        // Calculate how many characters were removed before the cursor
-        let removedBeforeCursor = 0;
-        for (let i = 0; i < cursorPosition && i < originalValue.length; i++) {
-            if (!/\d/.test(originalValue[i])) {
-                removedBeforeCursor++;
+        
+        // Better cursor positioning for mobile
+        setTimeout(() => {
+            let removedBeforeCursor = 0;
+            for (let i = 0; i < cursorPosition && i < originalValue.length; i++) {
+                if (!/\d/.test(originalValue[i])) {
+                    removedBeforeCursor++;
+                }
             }
-        }
-
-        // Set new cursor position
-        const newPosition = Math.max(0, cursorPosition - removedBeforeCursor);
-        input.setSelectionRange(newPosition, newPosition);
+            const newPosition = Math.max(0, Math.min(value.length, cursorPosition - removedBeforeCursor));
+            input.setSelectionRange(newPosition, newPosition);
+        }, 10);
     }
 }
 
-// Input validation functions for weights (allow 1 decimal place)
+// Enhanced input validation for weights (allow 1 decimal place)
 function validateWeightInput(input) {
+    if (!input) return;
+    
     const cursorPosition = input.selectionStart;
     const originalValue = input.value;
     let value = originalValue;
+
+    // Remove negative signs
+    value = value.replace(/-/g, '');
 
     // Remove any non-digit characters except decimal point
     value = value.replace(/[^\d.]/g, '');
 
-    // Remove extra decimal points (keep only the first one)
+    // Handle multiple decimal points
     const parts = value.split('.');
     if (parts.length > 2) {
         value = parts[0] + '.' + parts.slice(1).join('');
+    }
+
+    // Handle leading decimal point
+    if (value.startsWith('.')) {
+        value = '0' + value;
     }
 
     // Limit to 1 decimal place
@@ -80,542 +127,429 @@ function validateWeightInput(input) {
         value = parts[0] + '.' + parts[1].substring(0, 1);
     }
 
-    // Only update if the value actually changed
+    // Limit total length for mobile display
+    if (value.length > 10) {
+        value = value.substring(0, 10);
+        showNotification('Maximum 10 characters allowed', 'error');
+    }
+
     if (value !== originalValue) {
         input.value = value;
+        
+        // Mobile-optimized cursor positioning
+        setTimeout(() => {
+            let removedBeforeCursor = 0;
+            const originalChars = originalValue.split('');
+            const newChars = value.split('');
+            let newIndex = 0;
 
-        // Calculate how many characters were removed before the cursor
-        let removedBeforeCursor = 0;
-        const originalChars = originalValue.split('');
-        const newChars = value.split('');
-        let newIndex = 0;
-
-        for (let i = 0; i < cursorPosition && i < originalChars.length; i++) {
-            if (newIndex < newChars.length && originalChars[i] === newChars[newIndex]) {
-                newIndex++;
-            } else {
-                removedBeforeCursor++;
+            for (let i = 0; i < cursorPosition && i < originalChars.length; i++) {
+                if (newIndex < newChars.length && originalChars[i] === newChars[newIndex]) {
+                    newIndex++;
+                } else {
+                    removedBeforeCursor++;
+                }
             }
-        }
 
-        // Set new cursor position
-        const newPosition = Math.max(0, cursorPosition - removedBeforeCursor);
-        input.setSelectionRange(newPosition, newPosition);
+            const newPosition = Math.max(0, Math.min(value.length, cursorPosition - removedBeforeCursor));
+            input.setSelectionRange(newPosition, newPosition);
+        }, 10);
     }
 }
 
+// Enhanced mobile-friendly keydown handlers
 function handleQuantityKeydown(event) {
-    const input = event.target;
-
-    // Allow: backspace, delete, tab, escape, enter
-    if ([8, 9, 27, 13, 46].indexOf(event.keyCode) !== -1 ||
-        // Allow: Ctrl+A, Ctrl+C, Ctrl+V, Ctrl+X
-        (event.ctrlKey === true && [65, 67, 86, 88].indexOf(event.keyCode) !== -1)) {
+    const allowedKeys = [8, 9, 27, 13, 46, 37, 38, 39, 40];
+    if (allowedKeys.includes(event.keyCode) ||
+        (event.ctrlKey && [65, 67, 86, 88, 90].includes(event.keyCode))) {
         return;
     }
 
-    // Allow decimal point so it can be caught by validation and trigger prompt
-    if (event.keyCode === 190 || event.keyCode === 110) {
+    // Prevent decimal point entry
+    if (event.keyCode === 190 || event.keyCode === 110 || event.key === '.') {
+        event.preventDefault();
+        navigator.vibrate && navigator.vibrate(50);
         return;
     }
 
-    // Ensure that it is a number only (allow decimal point to pass through)
+    // Only allow numbers
     if ((event.shiftKey || (event.keyCode < 48 || event.keyCode > 57)) && 
         (event.keyCode < 96 || event.keyCode > 105)) {
         event.preventDefault();
+        navigator.vibrate && navigator.vibrate(50);
         return;
     }
 }
 
 function handleWeightKeydown(event) {
-    const input = event.target;
-    const key = event.key;
-
-    // Allow: backspace, delete, tab, escape, enter
-    if ([8, 9, 27, 13, 46].indexOf(event.keyCode) !== -1 ||
-        // Allow: Ctrl+A, Ctrl+C, Ctrl+V, Ctrl+X
-        (event.ctrlKey === true && [65, 67, 86, 88].indexOf(event.keyCode) !== -1)) {
+    const allowedKeys = [8, 9, 27, 13, 46, 37, 38, 39, 40];
+    if (allowedKeys.includes(event.keyCode) ||
+        (event.ctrlKey && [65, 67, 86, 88, 90].includes(event.keyCode))) {
         return;
     }
 
-    // Ensure that it is a number or decimal point and stop the keypress
+    // Handle decimal point
+    if ((event.key === '.' || event.keyCode === 190 || event.keyCode === 110) && 
+        event.target.value.indexOf('.') !== -1) {
+        event.preventDefault();
+        navigator.vibrate && navigator.vibrate(50);
+        return;
+    }
+
+    // Only allow numbers and decimal point
     if ((event.shiftKey || (event.keyCode < 48 || event.keyCode > 57)) && 
         (event.keyCode < 96 || event.keyCode > 105) && 
         event.keyCode !== 190 && event.keyCode !== 110) {
         event.preventDefault();
-        return;
-    }
-
-    // Only allow one decimal point
-    if ((key === '.' || event.keyCode === 190 || event.keyCode === 110) && input.value.indexOf('.') !== -1) {
-        event.preventDefault();
+        navigator.vibrate && navigator.vibrate(50);
         return;
     }
 
     // Limit decimal places to 1
-    const currentValue = input.value;
+    const currentValue = event.target.value;
     const decimalIndex = currentValue.indexOf('.');
     if (decimalIndex !== -1 && currentValue.length - decimalIndex > 1 && 
-        input.selectionStart > decimalIndex) {
+        event.target.selectionStart > decimalIndex && 
+        !allowedKeys.includes(event.keyCode)) {
         event.preventDefault();
+        navigator.vibrate && navigator.vibrate(50);
         return;
     }
 }
 
-// Better mobile focus handling
-function focusInputSafely(input, delay = 100) {
+// Enhanced mobile focus handling with iOS optimization
+function focusInputSafely(input, delay = 150) {
     if (!input) return;
 
-    setTimeout(() => {
+    // For desktop, just focus normally
+    if (!isMobile()) {
         input.focus();
-
-        // For iOS, we need to trigger the keyboard differently
-        if (isIOS()) {
-            input.click();
-            // Scroll the input into view
-            input.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        }
-
-        // Set cursor to end of input
-        const length = input.value.length;
-        input.setSelectionRange(length, length);
-    }, delay);
-}
-
-// Auto-save functions
-function saveToLocalStorage() {
-    try {
-        const appState = {
-            currentPage,
-            simplePairCount,
-            itemCount,
-            pairCounts,
-            timestamp: new Date().toISOString(),
-            // Save simple calculator data
-            simplePairs: getSimplePairsData(),
-            // Save complex calculator data
-            complexItems: getComplexItemsData(),
-            periodSelect: document.getElementById('periodSelect')?.value || 'Pre-Historic'
-        };
-        localStorage.setItem(AUTOSAVE_KEY, JSON.stringify(appState));
-        console.log('Data auto-saved successfully');
-    } catch (error) {
-        console.error('Failed to save data:', error);
-    }
-}
-
-function loadFromLocalStorage() {
-    try {
-        const saved = localStorage.getItem(AUTOSAVE_KEY);
-        if (saved) {
-            const appState = JSON.parse(saved);
-
-            // Show recovery notification
-            const lastSave = new Date(appState.timestamp);
-            if (confirm(`Found saved data from ${lastSave.toLocaleString()}. Would you like to restore it?`)) {
-                restoreAppState(appState);
-                return true;
-            }
-        }
-    } catch (error) {
-        console.error('Failed to load saved data:', error);
-    }
-    return false;
-}
-
-function getSimplePairsData() {
-    const pairs = [];
-    document.querySelectorAll('#simplePairs .pair-container').forEach(pair => {
-        const pairId = pair.id.split('-')[1];
-        const quantity = document.getElementById(`simpleNum1-${pairId}`)?.value || '';
-        const weight = document.getElementById(`simpleNum2-${pairId}`)?.value || '';
-        if (quantity || weight) {
-            pairs.push({ id: pairId, quantity, weight });
-        }
-    });
-    return pairs;
-}
-
-function getComplexItemsData() {
-    const items = [];
-    document.querySelectorAll('.item-section').forEach(itemSection => {
-        const itemId = itemSection.id;
-        const itemName = itemSection.querySelector('.item-title')?.textContent || '';
-        const pairs = [];
-
-        for (let i = 1; i <= (pairCounts[itemId] || 0); i++) {
-            const quantity = document.getElementById(`num1-${itemId}-${i}`)?.value || '';
-            const weight = document.getElementById(`num2-${itemId}-${i}`)?.value || '';
-            if (quantity || weight) {
-                pairs.push({ id: i, quantity, weight });
-            }
-        }
-
-        if (pairs.length > 0 || itemName) {
-            items.push({ id: itemId, name: itemName, pairs });
-        }
-    });
-    return items;
-}
-
-function restoreAppState(appState) {
-    // Restore global variables
-    currentPage = appState.currentPage || 'menu';
-    simplePairCount = appState.simplePairCount || 0;
-    itemCount = appState.itemCount || 0;
-    pairCounts = appState.pairCounts || {};
-
-    // Restore period select
-    if (document.getElementById('periodSelect')) {
-        document.getElementById('periodSelect').value = appState.periodSelect || 'Pre-Historic';
-    }
-
-    // Restore simple calculator
-    if (appState.simplePairs && appState.simplePairs.length > 0) {
-        document.getElementById('simplePairs').innerHTML = '';
-        simplePairCount = 0;
-
-        appState.simplePairs.forEach(pairData => {
-            addSimpleNumberPair();
-            document.getElementById(`simpleNum1-${simplePairCount}`).value = pairData.quantity;
-            document.getElementById(`simpleNum2-${simplePairCount}`).value = pairData.weight;
-        });
-    }
-
-    // Restore complex calculator
-    if (appState.complexItems && appState.complexItems.length > 0) {
-        document.getElementById('itemSections').innerHTML = '';
-        itemCount = 0;
-        pairCounts = {};
-
-        appState.complexItems.forEach(itemData => {
-            // Restore item
-            itemCount++;
-            const itemId = itemData.id || `item-${itemCount}`;
-            pairCounts[itemId] = 0;
-
-            const container = document.getElementById('itemSections');
-            const itemDiv = document.createElement('div');
-            itemDiv.className = 'item-section';
-            itemDiv.id = itemId;
-            itemDiv.innerHTML = `
-                <div class="item-header">
-                    <div class="item-title">${itemData.name}</div>
-                    <button class="remove-btn" onclick="removeItem('${itemId}')">Remove Item</button>
-                </div>
-                <div id="pairs-${itemId}"></div>
-                <button class="add-btn" onclick="addNumberPair('${itemId}')">+ Add Number Pair</button>
-            `;
-            container.appendChild(itemDiv);
-
-            // Restore pairs for this item
-            itemData.pairs.forEach(pairData => {
-                addNumberPair(itemId);
-                document.getElementById(`num1-${itemId}-${pairCounts[itemId]}`).value = pairData.quantity;
-                document.getElementById(`num2-${itemId}-${pairCounts[itemId]}`).value = pairData.weight;
-            });
-        });
-    }
-
-    // Show the correct page
-    showPage(currentPage);
-
-    // Show success message
-    showNotification('Data restored successfully!', 'success');
-}
-
-// Calculation History functions
-function saveCalculationToHistory(type, results) {
-    try {
-        const calculation = {
-            id: Date.now(),
-            type: type, // 'simple' or 'complex'
-            timestamp: new Date().toISOString(),
-            results: results,
-            data: type === 'simple' ? getSimplePairsData() : getComplexItemsData()
-        };
-
-        // Load existing history
-        const existingHistory = JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]');
-
-        // Add new calculation to beginning of array
-        existingHistory.unshift(calculation);
-
-        // Keep only the last MAX_HISTORY calculations
-        const trimmedHistory = existingHistory.slice(0, MAX_HISTORY);
-
-        // Save back to localStorage
-        localStorage.setItem(HISTORY_KEY, JSON.stringify(trimmedHistory));
-        calculationHistory = trimmedHistory;
-
-        updateHistoryUI();
-        console.log('Calculation saved to history');
-    } catch (error) {
-        console.error('Failed to save calculation to history:', error);
-    }
-}
-
-function loadCalculationHistory() {
-    try {
-        const history = JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]');
-        calculationHistory = history;
-        updateHistoryUI();
-    } catch (error) {
-        console.error('Failed to load calculation history:', error);
-        calculationHistory = [];
-    }
-}
-
-function updateHistoryUI() {
-    // Add history buttons to each page if they don't exist
-    addHistoryButtonsToPages();
-}
-
-function addHistoryButtonsToPages() {
-    // Add to simple page
-    const simpleContainer = document.querySelector('#simplePage .container');
-    if (simpleContainer && !document.getElementById('simpleHistorySection')) {
-        const historySection = createHistorySection('simple');
-        const calculateSection = simpleContainer.querySelector('div[style*="text-align: center"]');
-        simpleContainer.insertBefore(historySection, calculateSection);
-    }
-
-    // Add to complex page
-    const complexContainer = document.querySelector('#complexPage .container');
-    if (complexContainer && !document.getElementById('complexHistorySection')) {
-        const historySection = createHistorySection('complex');
-        const stickyButtons = complexContainer.querySelector('.sticky-buttons');
-        complexContainer.insertBefore(historySection, stickyButtons);
-    }
-}
-
-function createHistorySection(type) {
-    const section = document.createElement('div');
-    section.id = `${type}HistorySection`;
-    section.className = 'history-section';
-    section.style.cssText = 'margin: 20px 0; padding: 15px; background-color: #f0f0f0; border-radius: 5px; border-left: 4px solid #2196F3;';
-
-    const relevantHistory = calculationHistory.filter(calc => calc.type === type);
-
-    if (relevantHistory.length === 0) {
-        section.innerHTML = `
-            <h4 style="margin: 0 0 10px 0; color: #666;">Recent Calculations</h4>
-            <p style="margin: 0; color: #999; font-style: italic;">No recent calculations found</p>
-        `;
-    } else {
-        const historyItems = relevantHistory.map((calc, index) => {
-            const date = new Date(calc.timestamp).toLocaleString();
-            const resultSummary = type === 'simple' 
-                ? `Qty: ${calc.results.totalQuantity}, Weight: ${calc.results.totalWeight}`
-                : `${calc.results.length} items calculated`;
-
-            return `
-                <div style="margin: 10px 0; display: flex; justify-content: space-between; align-items: center;">
-                    <div>
-                        <strong>${date}</strong><br>
-                        <small style="color: #666;">${resultSummary}</small>
-                    </div>
-                    <button onclick="restoreCalculation(${calc.id})" style="background-color: #2196F3; padding: 8px 12px; font-size: 12px;">
-                        Restore
-                    </button>
-                </div>
-            `;
-        }).join('');
-
-        section.innerHTML = `
-            <h4 style="margin: 0 0 15px 0; color: #333;">Recent Calculations</h4>
-            ${historyItems}
-        `;
-    }
-
-    return section;
-}
-
-function restoreCalculation(calculationId) {
-    const calculation = calculationHistory.find(calc => calc.id === calculationId);
-    if (!calculation) {
-        showNotification('Calculation not found!', 'error');
         return;
     }
 
-    if (!confirm(`This will replace your current data with the calculation from ${new Date(calculation.timestamp).toLocaleString()}. Continue?`)) {
-        return;
-    }
+    // Ensure element exists and is visible
+    if (!document.contains(input)) return;
 
-    if (calculation.type === 'simple') {
-        restoreSimpleCalculation(calculation);
+    // iOS requires user interaction to open keyboard
+    if (isIOS()) {
+        setTimeout(() => {
+            try {
+                input.scrollIntoView({ 
+                    behavior: 'smooth', 
+                    block: 'center',
+                    inline: 'nearest'
+                });
+
+                input.focus();
+                input.click();
+                
+                // Set cursor to end
+                const length = input.value.length;
+                input.setSelectionRange(length, length);
+                
+            } catch (error) {
+                console.warn('iOS focus error:', error);
+                input.focus();
+            }
+        }, 50);
     } else {
-        restoreComplexCalculation(calculation);
+        // Android and other mobile browsers
+        setTimeout(() => {
+            try {
+                input.scrollIntoView({ 
+                    behavior: 'smooth', 
+                    block: 'center',
+                    inline: 'nearest'
+                });
+                
+                setTimeout(() => {
+                    input.focus();
+                    
+                    // Set cursor to end
+                    const length = input.value.length;
+                    input.setSelectionRange(length, length);
+                    
+                    // Haptic feedback
+                    navigator.vibrate && navigator.vibrate(25);
+                }, 100);
+            } catch (error) {
+                console.warn('Focus error:', error);
+            }
+        }, delay);
     }
-
-    showNotification('Calculation restored successfully!', 'success');
 }
 
-function restoreSimpleCalculation(calculation) {
-    // Clear current data
-    document.getElementById('simplePairs').innerHTML = '';
-    document.getElementById('simpleResults').style.display = 'none';
-    simplePairCount = 0;
+// iOS-specific keyboard handling
+function handleIOSKeyboardBehavior(input) {
+    if (!isIOS()) return;
+    
+    input.addEventListener('touchstart', function(e) {
+        setTimeout(() => {
+            this.focus();
+        }, 10);
+    });
+    
+    input.addEventListener('keydown', function(e) {
+        if (e.keyCode === 9) {
+            e.preventDefault();
+            handleIOSNavigation(this);
+        }
+    });
+}
 
-    // Restore data
-    calculation.data.forEach(pairData => {
+// iOS-specific navigation handler
+function handleIOSNavigation(currentInput) {
+    const inputId = currentInput.id;
+    
+    if (inputId.includes('simpleNum1-')) {
+        const pairId = inputId.split('-')[1];
+        const nextInput = document.getElementById(`simpleNum2-${pairId}`);
+        if (nextInput) {
+            focusInputSafely(nextInput, 50);
+        }
+    } else if (inputId.includes('simpleNum2-')) {
         addSimpleNumberPair();
-        document.getElementById(`simpleNum1-${simplePairCount}`).value = pairData.quantity;
-        document.getElementById(`simpleNum2-${simplePairCount}`).value = pairData.weight;
-    });
-
-    // Show results
-    document.getElementById('simpleTotalQuantity').textContent = calculation.results.totalQuantity;
-    document.getElementById('simpleTotalWeight').textContent = calculation.results.totalWeight;
-    document.getElementById('simpleResults').style.display = 'block';
+    } else if (inputId.includes('num1-')) {
+        const parts = inputId.split('-');
+        const itemId = parts[1];
+        const pairId = parts[2];
+        const nextInput = document.getElementById(`num2-${itemId}-${pairId}`);
+        if (nextInput) {
+            focusInputSafely(nextInput, 50);
+        }
+    } else if (inputId.includes('num2-')) {
+        const parts = inputId.split('-');
+        const itemId = parts[1];
+        addNumberPair(itemId);
+    }
 }
 
-function restoreComplexCalculation(calculation) {
-    // Clear current data
-    resetAll();
+// iOS keyboard detection and handling
+function setupIOSKeyboardHandling() {
+    if (!isIOS()) return;
+    
+    document.addEventListener('input', function(e) {
+        if (e.target.matches('input[type="number"]')) {
+            const input = e.target;
+            const value = input.value;
+            
+            if (input.id.includes('Num1') || input.id.includes('num1')) {
+                if (value && parseInt(value) > 0) {
+                    showIOSNavigationHint(input);
+                }
+            }
+        }
+    });
+    
+    document.addEventListener('blur', function(e) {
+        if (e.target.matches('input[type="number"]') && isIOS()) {
+            setTimeout(() => {
+                const activeElement = document.activeElement;
+                if (activeElement === document.body || activeElement === document.documentElement) {
+                    handleIOSAutoAdvance(e.target);
+                }
+            }, 100);
+        }
+    });
+}
 
-    // Restore items
-    calculation.data.forEach(itemData => {
-        itemCount++;
-        const itemId = `item-${itemCount}`;
-        pairCounts[itemId] = 0;
+function showIOSNavigationHint(input) {
+    const existingHint = input.parentNode.querySelector('.ios-hint');
+    if (existingHint) existingHint.remove();
+    
+    const hint = document.createElement('div');
+    hint.className = 'ios-hint';
+    hint.innerHTML = `
+        <small style="color: #007AFF; font-size: 12px; margin-top: 4px; display: block;">
+            📱 Tap "Next" or "Done" to continue
+        </small>
+    `;
+    
+    input.parentNode.appendChild(hint);
+    
+    setTimeout(() => {
+        if (hint && hint.parentNode) {
+            hint.parentNode.removeChild(hint);
+        }
+    }, 3000);
+}
 
-        const container = document.getElementById('itemSections');
-        const itemDiv = document.createElement('div');
-        itemDiv.className = 'item-section';
-        itemDiv.id = itemId;
-        itemDiv.innerHTML = `
-            <div class="item-header">
-                <div class="item-title">${itemData.name}</div>
-                <button class="remove-btn" onclick="removeItem('${itemId}')">Remove Item</button>
-            </div>
-            <div id="pairs-${itemId}"></div>
-            <button class="add-btn" onclick="addNumberPair('${itemId}')">+ Add Number Pair</button>
-        `;
-        container.appendChild(itemDiv);
+function handleIOSAutoAdvance(input) {
+    const inputId = input.id;
+    const value = input.value.trim();
+    
+    if (!value) return;
+    
+    if (inputId.includes('simpleNum1-') || inputId.includes('num1-')) {
+        handleIOSNavigation(input);
+    } else if (inputId.includes('simpleNum2-') || inputId.includes('num2-')) {
+        showIOSNewPairOption(input);
+    }
+}
 
-        // Restore pairs
-        itemData.pairs.forEach(pairData => {
+function showIOSNewPairOption(input) {
+    const existingOption = document.querySelector('.ios-new-pair-option');
+    if (existingOption) existingOption.remove();
+    
+    const option = document.createElement('div');
+    option.className = 'ios-new-pair-option';
+    option.style.cssText = `
+        position: fixed;
+        bottom: 20px;
+        right: 20px;
+        background: #007AFF;
+        color: white;
+        border-radius: 50%;
+        width: 60px;
+        height: 60px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 24px;
+        cursor: pointer;
+        box-shadow: 0 4px 12px rgba(0, 122, 255, 0.4);
+        z-index: 1000;
+        animation: bounceIn 0.3s ease;
+        touch-action: manipulation;
+    `;
+    option.innerHTML = '➕';
+    option.title = 'Add new pair';
+    
+    option.addEventListener('click', function() {
+        const inputId = input.id;
+        if (inputId.includes('simple')) {
+            addSimpleNumberPair();
+        } else {
+            const parts = inputId.split('-');
+            const itemId = parts[1];
             addNumberPair(itemId);
-            document.getElementById(`num1-${itemId}-${pairCounts[itemId]}`).value = pairData.quantity;
-            document.getElementById(`num2-${itemId}-${pairCounts[itemId]}`).value = pairData.weight;
-        });
+        }
+        
+        this.remove();
+        navigator.vibrate && navigator.vibrate([50, 50, 50]);
     });
-
-    // Show results
-    const resultsGrid = document.getElementById('complexResultsGrid');
-    resultsGrid.innerHTML = calculation.results.map(result => `
-        <div class="item-result">
-            <h4>${result.name}</h4>
-            <div class="result-item">Quantity: ${result.quantity}</div>
-            <div class="result-item">Weight: ${result.weight.toFixed(1)}</div>
-        </div>
-    `).join('');
-    document.getElementById('complexResults').style.display = 'block';
+    
+    document.body.appendChild(option);
+    
+    setTimeout(() => {
+        if (option && option.parentNode) {
+            option.remove();
+        }
+    }, 5000);
 }
 
-// Notification system
-function showNotification(message, type = 'info') {
+// Enhanced mobile notification system
+function showNotification(message, type = 'info', duration = 3000) {
+    document.querySelectorAll('.notification').forEach(n => n.remove());
+    
     const notification = document.createElement('div');
+    notification.className = `notification ${type}`;
+    
     notification.style.cssText = `
         position: fixed;
         top: 20px;
-        right: 20px;
+        left: 10px;
+        right: 10px;
         padding: 15px 20px;
-        border-radius: 5px;
+        border-radius: 8px;
         color: white;
         font-weight: bold;
         z-index: 1000;
-        max-width: 300px;
         opacity: 0;
-        transition: opacity 0.3s ease;
+        transform: translateY(-20px);
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        font-size: 14px;
+        text-align: center;
     `;
 
     switch (type) {
         case 'success':
-            notification.style.backgroundColor = '#4CAF50';
+            notification.style.background = 'linear-gradient(135deg, #4CAF50, #45a049)';
             break;
         case 'error':
-            notification.style.backgroundColor = '#f44336';
+            notification.style.background = 'linear-gradient(135deg, #f44336, #d32f2f)';
             break;
         default:
-            notification.style.backgroundColor = '#2196F3';
+            notification.style.background = 'linear-gradient(135deg, #2196F3, #1976D2)';
     }
 
     notification.textContent = message;
     document.body.appendChild(notification);
 
-    // Fade in
-    setTimeout(() => notification.style.opacity = '1', 10);
+    requestAnimationFrame(() => {
+        notification.style.opacity = '1';
+        notification.style.transform = 'translateY(0)';
+    });
 
-    // Remove after 3 seconds
-    setTimeout(() => {
-        notification.style.opacity = '0';
-        setTimeout(() => document.body.removeChild(notification), 300);
-    }, 3000);
-}
-
-// Auto-save on input changes
-function setupAutoSave() {
-    let saveTimeout;
-
-    function triggerAutoSave() {
-        clearTimeout(saveTimeout);
-        saveTimeout = setTimeout(saveToLocalStorage, 1000); // Save after 1 second of inactivity
+    if (type === 'error' && navigator.vibrate) {
+        navigator.vibrate([100, 50, 100]);
+    } else if (navigator.vibrate) {
+        navigator.vibrate(50);
     }
 
-    // Save on input changes
-    document.addEventListener('input', triggerAutoSave);
-    document.addEventListener('change', triggerAutoSave);
-
-    // Save periodically (every 30 seconds)
-    setInterval(saveToLocalStorage, 30000);
-
-    // Save before page unload
-    window.addEventListener('beforeunload', saveToLocalStorage);
+    setTimeout(() => {
+        notification.style.opacity = '0';
+        notification.style.transform = 'translateY(-20px)';
+        setTimeout(() => {
+            if (document.body.contains(notification)) {
+                document.body.removeChild(notification);
+            }
+        }, 300);
+    }, duration);
 }
 
 // Navigation functions
 function showPage(pageId) {
-    document.querySelectorAll('.page').forEach(page => {
-        page.classList.remove('active');
-    });
-    document.getElementById(pageId + 'Page').classList.add('active');
-    currentPage = pageId;
+    try {
+        document.querySelectorAll('.page').forEach(page => {
+            page.classList.remove('active');
+        });
+        
+        const targetPage = document.getElementById(pageId + 'Page');
+        if (targetPage) {
+            targetPage.classList.add('active');
+            currentPage = pageId;
 
-    // Adjust body padding for complex page
-    if (pageId === 'complex') {
-        document.body.style.paddingBottom = '80px';
-    } else {
-        document.body.style.paddingBottom = '20px';
+            if (pageId === 'complex') {
+                document.body.style.paddingBottom = '100px';
+            } else {
+                document.body.style.paddingBottom = '20px';
+            }
+
+            window.scrollTo(0, 0);
+        }
+    } catch (error) {
+        console.error('Error showing page:', error);
     }
-
-    // Update history UI when switching pages
-    updateHistoryUI();
-
-    // Auto-save page change
-    setTimeout(saveToLocalStorage, 100);
 }
 
 function goToMenu() {
     showPage('menu');
-    // Reset password section
-    document.getElementById('passwordSection').style.display = 'none';
-    document.getElementById('passwordInput').value = '';
-    document.getElementById('errorMessage').textContent = '';
+    const passwordSection = document.getElementById('passwordSection');
+    const passwordInput = document.getElementById('passwordInput');
+    const errorMessage = document.getElementById('errorMessage');
+    
+    if (passwordSection) passwordSection.style.display = 'none';
+    if (passwordInput) passwordInput.value = '';
+    if (errorMessage) errorMessage.textContent = '';
 }
 
 function goToSimple() {
     showPage('simple');
-    // Add first pair automatically if none exist
     if (simplePairCount === 0) {
-        addSimpleNumberPair();
+        setTimeout(() => addSimpleNumberPair(), 100);
     }
 }
 
 function showPasswordInput() {
-    document.getElementById('passwordSection').style.display = 'block';
-    document.getElementById('passwordInput').focus();
+    const passwordSection = document.getElementById('passwordSection');
+    const passwordInput = document.getElementById('passwordInput');
+    
+    if (passwordSection) {
+        passwordSection.style.display = 'block';
+        setTimeout(() => focusInputSafely(passwordInput, 200), 100);
+    }
 }
 
 function handlePasswordEnter(event) {
@@ -625,31 +559,39 @@ function handlePasswordEnter(event) {
 }
 
 function checkPassword() {
-    const password = document.getElementById('passwordInput').value;
+    const passwordInput = document.getElementById('passwordInput');
     const errorDiv = document.getElementById('errorMessage');
+    const password = passwordInput?.value || '';
 
     if (password === '1625') {
         showPage('complex');
-        // Auto-focus on new item input
-        document.getElementById('newItemName').focus();
+        setTimeout(() => {
+            const newItemSelect = document.getElementById('newItemName');
+            if (newItemSelect) focusInputSafely(newItemSelect, 300);
+        }, 500);
     } else {
-        errorDiv.textContent = 'Incorrect password. Please try again.';
-        document.getElementById('passwordInput').value = '';
-        document.getElementById('passwordInput').focus();
+        if (errorDiv) errorDiv.textContent = 'Incorrect password. Please try again.';
+        if (passwordInput) {
+            passwordInput.value = '';
+            focusInputSafely(passwordInput, 100);
+        }
+        navigator.vibrate && navigator.vibrate([100, 50, 100]);
     }
 }
 
 // Simple Calculator Functions
 function addSimpleNumberPair() {
     simplePairCount++;
-    const container = document.getElementById('simplePairs');
+    const container = domCache.simplePairs || document.getElementById('simplePairs');
+    if (!container) return;
+
     const pairDiv = document.createElement('div');
     pairDiv.className = 'pair-container';
     pairDiv.id = `simplePair-${simplePairCount}`;
     pairDiv.innerHTML = `
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-            <h4 style="margin: 0;">Pair ${simplePairCount}</h4>
-            <button class="remove-btn" onclick="removeSimplePair(${simplePairCount})">Remove</button>
+        <div class="pair-header">
+            <h4>Pair ${simplePairCount}</h4>
+            <button class="remove-btn" onclick="removeSimplePair(${simplePairCount})" type="button">Remove</button>
         </div>
         <div class="number-inputs">
             <div class="input-group">
@@ -660,6 +602,7 @@ function addSimpleNumberPair() {
                        min="0" 
                        inputmode="numeric"
                        placeholder="Enter quantity" 
+                       autocomplete="off"
                        oninput="validateQuantityInput(this)"
                        onkeydown="handleQuantityKeydown(event); handleSimpleEnterKey(event, ${simplePairCount}, 1)">
             </div>
@@ -670,6 +613,7 @@ function addSimpleNumberPair() {
                        step="0.1" 
                        inputmode="decimal"
                        placeholder="Enter weight" 
+                       autocomplete="off"
                        oninput="validateWeightInput(this)"
                        onkeydown="handleWeightKeydown(event); handleSimpleEnterKey(event, ${simplePairCount}, 2)">
             </div>
@@ -677,168 +621,212 @@ function addSimpleNumberPair() {
     `;
     container.appendChild(pairDiv);
 
-    // Auto-focus on the first input field of the new pair with better mobile handling
-    const firstInput = document.getElementById(`simpleNum1-${simplePairCount}`);
-    focusInputSafely(firstInput, isIOS() ? 200 : 50);
+    const quantityInput = document.getElementById(`simpleNum1-${simplePairCount}`);
+    const weightInput = document.getElementById(`simpleNum2-${simplePairCount}`);
+
+    if (isIOS()) {
+        handleIOSKeyboardBehavior(quantityInput);
+        handleIOSKeyboardBehavior(weightInput);
+        quantityInput.focus();
+        quantityInput.click();
+    } else {
+        focusInputSafely(quantityInput, 100);
+    }
 }
 
 function removeSimplePair(pairId) {
-    const pair = document.getElementById(`simplePair-${pairId}`);
-    if (pair) {
-        pair.remove();
-        saveToLocalStorage(); // Auto-save after removal
+    try {
+        const pair = document.getElementById(`simplePair-${pairId}`);
+        if (pair) {
+            const inputs = pair.querySelectorAll('input');
+            inputs.forEach(input => {
+                input.oninput = null;
+                input.onkeydown = null;
+            });
+            
+            pair.remove();
+            navigator.vibrate && navigator.vibrate(50);
+        }
+    } catch (error) {
+        console.error('Error removing simple pair:', error);
     }
 }
 
 function handleSimpleEnterKey(event, currentPair, currentField) {
-    if (event.key === 'Enter') {
+    if (event.key === 'Enter' || event.keyCode === 13) {
         event.preventDefault();
 
         let nextInput = null;
 
         if (currentField === 1) {
-            // Move from quantity to weight in same pair
             nextInput = document.getElementById(`simpleNum2-${currentPair}`);
         } else if (currentField === 2) {
-            // Create new pair and focus on its first input
             addSimpleNumberPair();
             nextInput = document.getElementById(`simpleNum1-${simplePairCount}`);
         }
 
         if (nextInput) {
-            focusInputSafely(nextInput, isIOS() ? 500 : 100);
+            focusInputSafely(nextInput, isIOS() ? 100 : 50);
         }
+    } else if (isIOS() && event.keyCode === 9) {
+        event.preventDefault();
+        handleIOSNavigation(event.target);
     }
 }
 
 function calculateSimple() {
-    let totalQuantity = 0;
-    let totalWeight = 0;
-    let hasData = false;
+    try {
+        let totalQuantity = 0;
+        let totalWeight = 0;
+        let hasData = false;
 
-    // Get all existing pairs
-    document.querySelectorAll('#simplePairs .pair-container').forEach(pair => {
-        const pairId = pair.id.split('-')[1];
-        const num1Input = document.getElementById(`simpleNum1-${pairId}`);
-        const num2Input = document.getElementById(`simpleNum2-${pairId}`);
+        const pairs = document.querySelectorAll('#simplePairs .pair-container');
+        pairs.forEach(pair => {
+            const pairId = pair.id.split('-')[1];
+            const num1Input = document.getElementById(`simpleNum1-${pairId}`);
+            const num2Input = document.getElementById(`simpleNum2-${pairId}`);
 
-        if (num1Input && num1Input.value) {
-            // Parse quantity as integer
-            const qty = parseInt(num1Input.value) || 0;
-            totalQuantity += qty;
-            hasData = true;
+            if (num1Input?.value) {
+                const qty = parseInt(num1Input.value) || 0;
+                totalQuantity += qty;
+                hasData = true;
+            }
+            if (num2Input?.value) {
+                totalWeight += parseFloat(num2Input.value) || 0;
+                hasData = true;
+            }
+        });
+
+        if (hasData) {
+            const formattedQuantity = totalQuantity.toString();
+            const formattedWeight = totalWeight % 1 === 0 ? 
+                totalWeight.toString() : 
+                totalWeight.toFixed(1);
+
+            const totalQtyEl = document.getElementById('simpleTotalQuantity');
+            const totalWeightEl = document.getElementById('simpleTotalWeight');
+            
+            if (totalQtyEl) totalQtyEl.textContent = formattedQuantity;
+            if (totalWeightEl) totalWeightEl.textContent = formattedWeight;
+            
+            if (domCache.simpleResults) {
+                domCache.simpleResults.style.display = 'block';
+                domCache.simpleResults.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }
+
+            showNotification('Calculation completed!', 'success');
+        } else {
+            showNotification('Please add some data before calculating', 'error');
         }
-        if (num2Input && num2Input.value) {
-            totalWeight += parseFloat(num2Input.value) || 0;
-            hasData = true;
-        }
-    });
-
-    if (hasData) {
-        // Format quantity as integer
-        const formattedQuantity = totalQuantity.toString();
-
-        // Format weight to 1 decimal place (no trailing zeros)
-        const formattedWeight = totalWeight % 1 === 0 ? 
-            totalWeight.toString() : 
-            totalWeight.toFixed(1);
-
-        document.getElementById('simpleTotalQuantity').textContent = formattedQuantity;
-        document.getElementById('simpleTotalWeight').textContent = formattedWeight;
-        document.getElementById('simpleResults').style.display = 'block';
-
-        // Save to history
-        const results = { 
-            totalQuantity: formattedQuantity, 
-            totalWeight: formattedWeight 
-        };
-        saveCalculationToHistory('simple', results);
-
-        // Update history UI
-        updateHistoryUI();
-
-        // Scroll to results
-        document.getElementById('simpleResults').scrollIntoView({ behavior: 'smooth' });
-
-        showNotification('Calculation completed and saved!', 'success');
-    } else {
-        showNotification('Please add some data before calculating', 'error');
+    } catch (error) {
+        console.error('Simple calculation error:', error);
+        showNotification('Calculation error occurred', 'error');
     }
 }
 
-function resetSimple() {
-    if (document.querySelectorAll('#simplePairs .pair-container').length > 0) {
-        if (!confirm('This will clear all your current data. Are you sure?')) {
-            return;
+function resetSimple(skipConfirm = false) {
+    try {
+        const hasPairs = document.querySelectorAll('#simplePairs .pair-container').length > 0;
+        
+        if (!skipConfirm && hasPairs) {
+            if (!confirm('This will clear all your current data. Are you sure?')) {
+                return;
+            }
         }
+
+        if (domCache.simplePairs) domCache.simplePairs.innerHTML = '';
+        if (domCache.simpleResults) domCache.simpleResults.style.display = 'none';
+        
+        simplePairCount = 0;
+        setTimeout(() => addSimpleNumberPair(), 100);
+        showNotification('Simple calculator reset', 'info');
+    } catch (error) {
+        console.error('Reset simple error:', error);
     }
-
-    document.getElementById('simplePairs').innerHTML = '';
-    document.getElementById('simpleResults').style.display = 'none';
-    simplePairCount = 0;
-    // Add first pair automatically after reset
-    addSimpleNumberPair();
-
-    // Clear autosave
-    saveToLocalStorage();
-    showNotification('Simple calculator reset', 'info');
 }
 
 // Complex Calculator Functions
-function addNewItem() {
-    const dropdown = document.getElementById('newItemName');
-    const customInput = document.getElementById('customItemName');
-    const periodSelect = document.getElementById('periodSelect');
-    let itemName = '';
-
-    if (dropdown.value === 'custom') {
-        itemName = customInput.value.trim();
-    } else {
-        itemName = dropdown.value.trim();
-    }
-
-    if (!itemName) {
-        showNotification('Please select or enter an item name', 'error');
-        return;
-    }
-
-    // Add period prefix to item name
-    const period = periodSelect.value;
-    itemName = `${period} ${itemName}`;
-
-    itemCount++;
-    const itemId = `item-${itemCount}`;
-    pairCounts[itemId] = 0;
-
-    const container = document.getElementById('itemSections');
+function createItemSection(itemId, itemName) {
     const itemDiv = document.createElement('div');
     itemDiv.className = 'item-section';
     itemDiv.id = itemId;
     itemDiv.innerHTML = `
         <div class="item-header">
             <div class="item-title">${itemName}</div>
-            <button class="remove-btn" onclick="removeItem('${itemId}')">Remove Item</button>
+            <button class="remove-btn" onclick="removeItem('${itemId}')" type="button">Remove Item</button>
         </div>
         <div id="pairs-${itemId}"></div>
-        <button class="add-btn" onclick="addNumberPair('${itemId}')">+ Add Number Pair</button>
+        <button class="add-btn" onclick="addNumberPair('${itemId}')" type="button">+ Add Number Pair</button>
     `;
-    container.appendChild(itemDiv);
+    return itemDiv;
+}
 
-    // Clear the inputs
-    document.getElementById('newItemName').value = '';
-    document.getElementById('customItemName').value = '';
-    document.getElementById('customItemName').style.display = 'none';
+function addNewItem() {
+    try {
+        const dropdown = document.getElementById('newItemName');
+        const customInput = document.getElementById('customItemName');
+        const periodSelect = document.getElementById('periodSelect');
+        
+        let itemName = '';
 
-    // Add first pair automatically and focus on it
-    addNumberPair(itemId);
+        if (dropdown?.value === 'custom') {
+            itemName = customInput?.value?.trim() || '';
+        } else {
+            itemName = dropdown?.value?.trim() || '';
+        }
+
+        if (!itemName) {
+            showNotification('Please select or enter an item name', 'error');
+            focusInputSafely(dropdown?.value === 'custom' ? customInput : dropdown, 100);
+            return;
+        }
+
+        const period = periodSelect?.value || 'Pre-Historic';
+        itemName = `${period} ${itemName}`;
+
+        itemCount++;
+        const itemId = `item-${itemCount}`;
+        pairCounts[itemId] = 0;
+
+        const container = domCache.itemSections || document.getElementById('itemSections');
+        if (container) {
+            const itemDiv = createItemSection(itemId, itemName);
+            container.appendChild(itemDiv);
+        }
+
+        if (dropdown) dropdown.value = '';
+        if (customInput) {
+            customInput.value = '';
+            customInput.style.display = 'none';
+        }
+
+        setTimeout(() => {
+            addNumberPair(itemId);
+            showNotification('Item added successfully', 'success');
+        }, 100);
+        
+    } catch (error) {
+        console.error('Error adding new item:', error);
+        showNotification('Error adding item', 'error');
+    }
 }
 
 function removeItem(itemId) {
-    const item = document.getElementById(itemId);
-    if (item) {
-        item.remove();
-        delete pairCounts[itemId];
-        saveToLocalStorage(); // Auto-save after removal
+    try {
+        const item = document.getElementById(itemId);
+        if (item) {
+            const inputs = item.querySelectorAll('input');
+            inputs.forEach(input => {
+                input.onInput = null;
+                input.onkeydown = null;
+            });
+            
+            item.remove();
+            delete pairCounts[itemId];
+            navigator.vibrate && navigator.vibrate(50);
+        }
+    } catch (error) {
+        console.error('Error removing item:', error);
     }
 }
 
@@ -846,12 +834,16 @@ function handleDropdownChange() {
     const dropdown = document.getElementById('newItemName');
     const customInput = document.getElementById('customItemName');
 
-    if (dropdown.value === 'custom') {
-        customInput.style.display = 'block';
-        customInput.focus();
+    if (dropdown?.value === 'custom') {
+        if (customInput) {
+            customInput.style.display = 'block';
+            focusInputSafely(customInput, 100);
+        }
     } else {
-        customInput.style.display = 'none';
-        customInput.value = '';
+        if (customInput) {
+            customInput.style.display = 'none';
+            customInput.value = '';
+        }
     }
 }
 
@@ -863,196 +855,302 @@ function handleNewItemEnter(event) {
 }
 
 function addNumberPair(itemId) {
-    pairCounts[itemId]++;
-    const pairId = pairCounts[itemId];
-    const container = document.getElementById(`pairs-${itemId}`);
-    const pairDiv = document.createElement('div');
-    pairDiv.className = 'pair-container';
-    pairDiv.id = `pair-${itemId}-${pairId}`;
-    pairDiv.innerHTML = `
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-            <h4 style="margin: 0;">Pair ${pairId}</h4>
-            <button class="remove-btn" onclick="removePair('${itemId}', ${pairId})">Remove</button>
-        </div>
-        <div class="number-inputs">
-            <div class="input-group">
-                <label for="num1-${itemId}-${pairId}">Quantity:</label>
-                <input type="number" 
-                       id="num1-${itemId}-${pairId}" 
-                       step="1" 
-                       min="0" 
-                       inputmode="numeric"
-                       placeholder="Enter quantity" 
-                       oninput="validateQuantityInput(this)"
-                       onkeydown="handleQuantityKeydown(event); handleEnterKey(event, '${itemId}', ${pairId}, 1)">
-            </div>
-            <div class="input-group">
-                <label for="num2-${itemId}-${pairId}">Weight:</label>
-                <input type="number" 
-                       id="num2-${itemId}-${pairId}" 
-                       step="0.1" 
-                       inputmode="decimal"
-                       placeholder="Enter weight" 
-                       oninput="validateWeightInput(this)"
-                       onkeydown="handleWeightKeydown(event); handleEnterKey(event, '${itemId}', ${pairId}, 2)">
-            </div>
-        </div>
-    `;
-    container.appendChild(pairDiv);
+    try {
+        if (!pairCounts[itemId]) pairCounts[itemId] = 0;
+        
+        pairCounts[itemId]++;
+        const pairId = pairCounts[itemId];
+        const container = document.getElementById(`pairs-${itemId}`);
+        
+        if (!container) return;
 
-    // Auto-focus on the first input field of the new pair with better mobile handling
-    const firstInput = document.getElementById(`num1-${itemId}-${pairId}`);
-    focusInputSafely(firstInput, isIOS() ? 200 : 50);
+        const pairDiv = document.createElement('div');
+        pairDiv.className = 'pair-container';
+        pairDiv.id = `pair-${itemId}-${pairId}`;
+        pairDiv.innerHTML = `
+            <div class="pair-header">
+                <h4>Pair ${pairId}</h4>
+                <button class="remove-btn" onclick="removePair('${itemId}', ${pairId})" type="button">Remove</button>
+            </div>
+            <div class="number-inputs">
+                <div class="input-group">
+                    <label for="num1-${itemId}-${pairId}">Quantity:</label>
+                    <input type="number" 
+                           id="num1-${itemId}-${pairId}" 
+                           step="1" 
+                           min="0" 
+                           inputmode="numeric"
+                           placeholder="Enter quantity" 
+                           autocomplete="off"
+                           oninput="validateQuantityInput(this)"
+                           onkeydown="handleQuantityKeydown(event); handleEnterKey(event, '${itemId}', ${pairId}, 1)">
+                </div>
+                <div class="input-group">
+                    <label for="num2-${itemId}-${pairId}">Weight:</label>
+                    <input type="number" 
+                           id="num2-${itemId}-${pairId}" 
+                           step="0.1" 
+                           inputmode="decimal"
+                           placeholder="Enter weight" 
+                           autocomplete="off"
+                           oninput="validateWeightInput(this)"
+                           onkeydown="handleWeightKeydown(event); handleEnterKey(event, '${itemId}', ${pairId}, 2)">
+                </div>
+            </div>
+        `;
+        container.appendChild(pairDiv);
+
+        const quantityInput = document.getElementById(`num1-${itemId}-${pairId}`);
+        const weightInput = document.getElementById(`num2-${itemId}-${pairId}`);
+
+        if (isIOS()) {
+            handleIOSKeyboardBehavior(quantityInput);
+            handleIOSKeyboardBehavior(weightInput);
+            quantityInput.focus();
+            quantityInput.click();
+        } else {
+            focusInputSafely(quantityInput, 100);
+        }
+    } catch (error) {
+        console.error('Error adding number pair:', error);
+    }
 }
 
 function removePair(itemId, pairId) {
-    const pair = document.getElementById(`pair-${itemId}-${pairId}`);
-    if (pair) {
-        pair.remove();
-        saveToLocalStorage(); // Auto-save after removal
+    try {
+        const pair = document.getElementById(`pair-${itemId}-${pairId}`);
+        if (pair) {
+            const inputs = pair.querySelectorAll('input');
+            inputs.forEach(input => {
+                input.onInput = null;
+                input.onkeydown = null;
+            });
+            
+            pair.remove();
+            navigator.vibrate && navigator.vibrate(50);
+        }
+    } catch (error) {
+        console.error('Error removing pair:', error);
     }
 }
 
 function handleEnterKey(event, itemId, currentPair, currentField) {
-    if (event.key === 'Enter') {
+    if (event.key === 'Enter' || event.keyCode === 13) {
         event.preventDefault();
 
         let nextInput = null;
 
         if (currentField === 1) {
-            // Move from quantity to weight in same pair
             nextInput = document.getElementById(`num2-${itemId}-${currentPair}`);
         } else if (currentField === 2) {
-            // Always create a new pair when pressing enter from weight field
             addNumberPair(itemId);
             nextInput = document.getElementById(`num1-${itemId}-${pairCounts[itemId]}`);
         }
 
         if (nextInput) {
-            focusInputSafely(nextInput, isIOS() ? 500 : 100);
+            focusInputSafely(nextInput, isIOS() ? 100 : 50);
         }
+    } else if (isIOS() && event.keyCode === 9) {
+        event.preventDefault();
+        handleIOSNavigation(event.target);
     }
 }
 
 function calculateAll() {
-    const results = [];
-    let hasData = false;
+    try {
+        const results = [];
+        let hasData = false;
 
-    // Calculate totals for each item
-    document.querySelectorAll('.item-section').forEach(itemSection => {
-        const itemId = itemSection.id;
-        const itemName = itemSection.querySelector('.item-title').textContent;
-        let totalQuantity = 0;
-        let totalWeight = 0;
+        document.querySelectorAll('.item-section').forEach(itemSection => {
+            const itemId = itemSection.id;
+            const itemNameEl = itemSection.querySelector('.item-title');
+            const itemName = itemNameEl?.textContent || '';
+            let totalQuantity = 0;
+            let totalWeight = 0;
+            let itemHasData = false;
 
-        // Get all pairs for this item
-        for (let i = 1; i <= pairCounts[itemId]; i++) {
-            const num1Input = document.getElementById(`num1-${itemId}-${i}`);
-            const num2Input = document.getElementById(`num2-${itemId}-${i}`);
+            for (let i = 1; i <= (pairCounts[itemId] || 0); i++) {
+                const num1Input = document.getElementById(`num1-${itemId}-${i}`);
+                const num2Input = document.getElementById(`num2-${itemId}-${i}`);
 
-            if (num1Input && num1Input.value) {
-                // Parse quantity as integer
-                const qty = parseInt(num1Input.value) || 0;
-                totalQuantity += qty;
-                hasData = true;
+                if (num1Input?.value) {
+                    const qty = parseInt(num1Input.value) || 0;
+                    totalQuantity += qty;
+                    itemHasData = true;
+                    hasData = true;
+                }
+                if (num2Input?.value) {
+                    totalWeight += parseFloat(num2Input.value) || 0;
+                    itemHasData = true;
+                    hasData = true;
+                }
             }
-            if (num2Input && num2Input.value) {
-                totalWeight += parseFloat(num2Input.value) || 0;
-                hasData = true;
+
+            if (itemHasData) {
+                const formattedWeight = totalWeight % 1 === 0 ? 
+                    totalWeight : 
+                    Math.round(totalWeight * 10) / 10;
+
+                results.push({
+                    name: itemName,
+                    quantity: totalQuantity,
+                    weight: formattedWeight
+                });
             }
+        });
+
+        if (results.length > 0) {
+            const resultsGrid = document.getElementById('complexResultsGrid');
+            if (resultsGrid) {
+                resultsGrid.innerHTML = results.map(result => `
+                    <div class="item-result">
+                        <h4>${result.name}</h4>
+                        <div class="result-item">Quantity: ${result.quantity}</div>
+                        <div class="result-item">Weight: ${result.weight % 1 === 0 ? result.weight.toString() : result.weight.toFixed(1)}</div>
+                    </div>
+                `).join('');
+            }
+
+            if (domCache.complexResults) {
+                domCache.complexResults.style.display = 'block';
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            }
+
+            showNotification('Calculation completed!', 'success');
+        } else {
+            showNotification('Please add some data before calculating', 'error');
         }
-
-        if (hasData) {
-            // Format quantity as integer
-            const formattedQuantity = totalQuantity;
-
-            // Format weight to 1 decimal place (no trailing zeros)
-            const formattedWeight = totalWeight % 1 === 0 ? 
-                totalWeight : 
-                Math.round(totalWeight * 10) / 10; // Round to 1 decimal place
-
-            results.push({
-                name: itemName,
-                quantity: formattedQuantity,
-                weight: formattedWeight
-            });
-        }
-    });
-
-    // Display results
-    if (results.length > 0) {
-        const resultsGrid = document.getElementById('complexResultsGrid');
-        resultsGrid.innerHTML = results.map(result => `
-            <div class="item-result">
-                <h4>${result.name}</h4>
-                <div class="result-item">Quantity: ${result.quantity}</div>
-                <div class="result-item">Weight: ${result.weight % 1 === 0 ? result.weight.toString() : result.weight.toFixed(1)}</div>
-            </div>
-        `).join('');
-
-        document.getElementById('complexResults').style.display = 'block';
-
-        // Save to history
-        saveCalculationToHistory('complex', results);
-
-        // Update history UI
-        updateHistoryUI();
-
-        // Scroll to top to show results
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-
-        showNotification('Calculation completed and saved!', 'success');
-    } else {
-        showNotification('Please add some data before calculating', 'error');
+    } catch (error) {
+        console.error('Calculate all error:', error);
+        showNotification('Calculation error occurred', 'error');
     }
 }
 
-function resetAll() {
-    if (document.querySelectorAll('.item-section').length > 0) {
-        if (!confirm('This will clear all your current data. Are you sure?')) {
-            return;
+function resetAll(skipConfirm = true) {
+    try {
+        const hasItems = document.querySelectorAll('.item-section').length > 0;
+        
+        if (!skipConfirm && hasItems) {
+            if (!confirm('This will clear all your current data. Are you sure?')) {
+                return;
+            }
         }
+
+        if (domCache.itemSections) domCache.itemSections.innerHTML = '';
+        if (domCache.complexResults) domCache.complexResults.style.display = 'none';
+        
+        itemCount = 0;
+        pairCounts = {};
+        
+        const newItemName = document.getElementById('newItemName');
+        const customItemName = document.getElementById('customItemName');
+        
+        if (newItemName) newItemName.value = '';
+        if (customItemName) {
+            customItemName.value = '';
+            customItemName.style.display = 'none';
+        }
+
+        showNotification('Complex calculator reset', 'info');
+    } catch (error) {
+        console.error('Reset all error:', error);
     }
-
-    document.getElementById('itemSections').innerHTML = '';
-    document.getElementById('complexResults').style.display = 'none';
-    itemCount = 0;
-    pairCounts = {};
-    document.getElementById('newItemName').value = '';
-    document.getElementById('customItemName').value = '';
-    document.getElementById('customItemName').style.display = 'none';
-
-    // Clear autosave
-    saveToLocalStorage();
-    showNotification('Complex calculator reset', 'info');
 }
 
 // Initialize app when page loads
 document.addEventListener('DOMContentLoaded', function() {
-    // Load calculation history
-    loadCalculationHistory();
-
-    // Try to restore saved data
-    const restored = loadFromLocalStorage();
-
-    if (!restored) {
-        // No saved data, start fresh
+    try {
+        // Initialize DOM cache
+        domCache.init();
+        
+        // Show menu page
         showPage('menu');
+
+        // Setup iOS-specific keyboard handling
+        if (isIOS()) {
+            setupIOSKeyboardHandling();
+            
+            // Add iOS-specific styles
+            const style = document.createElement('style');
+            style.textContent = `
+                @keyframes bounceIn {
+                    0% { transform: scale(0.3); opacity: 0; }
+                    50% { transform: scale(1.05); }
+                    70% { transform: scale(0.9); }
+                    100% { transform: scale(1); opacity: 1; }
+                }
+                
+                .ios-hint {
+                    animation: fadeIn 0.3s ease;
+                }
+                
+                @keyframes fadeIn {
+                    from { opacity: 0; transform: translateY(10px); }
+                    to { opacity: 1; transform: translateY(0); }
+                }
+                
+                input[type="number"] {
+                    font-size: 16px !important;
+                    -webkit-appearance: none;
+                    border-radius: 8px;
+                }
+                
+                input[type="number"]:focus {
+                    -webkit-user-select: text;
+                    user-select: text;
+                }
+                
+                .ios-new-pair-option {
+                    animation: bounceIn 0.3s ease !important;
+                }
+            `;
+            document.head.appendChild(style);
+        }
+
+        // Add mobile-specific event listeners
+        if (isMobile()) {
+            window.addEventListener('orientationchange', () => {
+                setTimeout(() => {
+                    window.scrollTo(0, 0);
+                    const activeElement = document.activeElement;
+                    if (activeElement && activeElement.matches('input')) {
+                        activeElement.blur();
+                        setTimeout(() => focusInputSafely(activeElement, 100), 200);
+                    }
+                }, 500);
+            });
+
+            let lastTouchEnd = 0;
+            document.addEventListener('touchend', (event) => {
+                const now = Date.now();
+                if (now - lastTouchEnd <= 300) {
+                    if (event.target.matches('input, button, select')) {
+                        event.preventDefault();
+                    }
+                }
+                lastTouchEnd = now;
+            }, false);
+
+            if (isIOS()) {
+                document.addEventListener('touchstart', function(e) {
+                    if (e.target.matches('input[type="number"]')) {
+                        document.querySelectorAll('.ios-hint, .ios-new-pair-option').forEach(el => el.remove());
+                    }
+                });
+
+                document.addEventListener('keydown', function(e) {
+                    if (e.keyCode === 9 && e.target.matches('input[type="number"]')) {
+                        e.preventDefault();
+                        handleIOSNavigation(e.target);
+                    }
+                });
+            }
+        }
+
+        console.log('Calculator app initialized successfully');
+        
+    } catch (error) {
+        console.error('Initialization error:', error);
+        showNotification('App initialization error', 'error');
     }
-
-    // Setup auto-save
-    setupAutoSave();
-
-    console.log('Calculator app initialized successfully');
 });
-
-// Clear data functions (for manual cleanup if needed)
-function clearAllSavedData() {
-    if (confirm('This will permanently delete all saved calculations and auto-saved data. This cannot be undone. Are you sure?')) {
-        localStorage.removeItem(AUTOSAVE_KEY);
-        localStorage.removeItem(HISTORY_KEY);
-        calculationHistory = [];
-        updateHistoryUI();
-        showNotification('All saved data cleared', 'info');
-    }
-}
