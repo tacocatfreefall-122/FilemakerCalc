@@ -114,7 +114,12 @@ function handleQuantityKeydown(event) {
         return;
     }
     
-    // Ensure that it is a number only (no decimal points for quantities)
+    // Allow decimal point so it can be caught by validation and trigger prompt
+    if (event.keyCode === 190 || event.keyCode === 110) {
+        return;
+    }
+    
+    // Ensure that it is a number only (allow decimal point to pass through)
     if ((event.shiftKey || (event.keyCode < 48 || event.keyCode > 57)) && 
         (event.keyCode < 96 || event.keyCode > 105)) {
         event.preventDefault();
